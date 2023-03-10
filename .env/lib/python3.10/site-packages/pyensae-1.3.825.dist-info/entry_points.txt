@@ -1,0 +1,4 @@
+[console_scripts]
+file_head = pyensae.cli.head_cli:file_head_cli
+file_tail = pyensae.cli.tail_cli:file_tail_cli
+

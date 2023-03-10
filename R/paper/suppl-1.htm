@@ -1,0 +1,150 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head>
+	<meta http-equiv="Content-Type" content="text/html, charset=UTF-8">
+    <title>Ecological Archives E093-042-S1</title>
+	
+	<script type="text/javascript" src="http://www.esapubs.org/templates/scripts/analytics.js"></script>
+  <script type="text/javascript" src="http://www.esapubs.org/templates/scripts/analytics.js"></script><style type="text/css">
+body {background-color: #FFF; font-family: Times New Roman, Times, serif;}
+
+hr {
+	height: .15em;
+	color: gray;
+	background-color: gray;
+	border-width: 0;
+}
+hr.divider {
+	width: 50em;
+	margin-top: 1.7em;
+	margin-bottom: 2em;
+	margin-left: 0;
+}
+
+p {max-width: 50em;}
+
+li {max-width: 48em;}
+
+sub, sup {font-size: .7em;}
+
+table, td {
+	border: 1px solid black;
+	border-collapse: collapse;
+	text-align: center;
+    vertical-align: top;
+}
+td {max-width: 70em; padding: .1em;}
+table, tr {
+	padding: .1em;}
+tr:first-child {font-weight: bold;}
+
+table.equation {border: none; width: 48em;}
+.equation td {border: none; text-align: left; vertical-align: middle;}
+.equation tr:first-child {font-weight: normal;}
+.equation td:last-child {text-align: right; width: 3em;}
+
+table.noFormat {border: none; text-align: inherit;}
+.noFormat td {border: none; text-align: inherit;}
+.noFormat tr:first-child {font-weight: normal;}
+
+/* Position modifiers.  Use these to alter placement of elements on the page. */
+
+.center {margin-left: auto; margin-right: auto; text-align: center;}
+.textCenter {text-align: center;}
+.textLeft  {text-align:left;}
+
+.indent {margin-left: 2em;}
+p.indent {max-width: 48em;}
+p.heading.indent {max-width: 40em;}
+.halfIndent {margin-left: 1em;}
+
+/* Font modifiers.  Use these to alter font style and type. */
+
+.courier {font-family: Courier new, Courier, mono;}
+.heading {max-width: 45em; margin-top: .7em; font-size: 1.2em; font-weight: bold;}
+.overline {text-decoration: overline;}
+.over {text-decoration: overline;}
+.roman{font-style: normal; text-decoration: none; font-weight: normal;}
+.smallcaps {font-variant: small-caps;}
+
+#links {font-size: .7em; font-family: Arial, Helvetica, sans-serif;}
+</style></head>
+  <body bgcolor="#FFFFFF">
+	<p class="heading">Glenda Yenni, Peter B. Adler, and S. K. Morgan Ernest. 2012. Strong self-limitation promotes the persistence of rare species. <i>Ecology</i> 93:456–461.</p>
+    <hr>
+    <p class="heading">Supplement</p>
+	<p class="heading indent">
+		R code to simulate frequency-dependent population growth for specific parameter combinations.
+		<br><i>Ecological Archives</i> E093-042-S1.
+	</p>
+    <p style="font-weight: bold;"><a href="../../../copyright.htm">Copyright</a></p>
+    <hr>
+    <p class="heading indent">
+        <a href="#authors">Authors</a><br>
+        <a href="#filelist">File list (downloads)</a><br>
+        <a href="#desc">Description</a>
+    </p>
+    <hr>
+    <p id="authors" class="heading">Author(s)</p>
+    <p class="indent">
+		Glenda M. Yenni<br>
+		Department of Biology<br>
+		Utah State University<br>
+		Logan, UT 84322<br>
+		USA<br>
+		Email: <a href="mailto:gmyenni@biology.usu.edu">gmyenni@biology.usu.edu</a><br>
+	</p>
+	<p class="indent">
+		Peter B. Adler<br>
+		Department of Wildland Resources<br>
+		Utah State University<br>
+		Logan, UT 84322<br>
+		USA
+	</p>
+	<p class="indent">
+		S. K. Morgan Ernest<br>
+		Department of Biology<br>
+		Utah State University<br>
+		Logan, UT 84322<br>
+		USA
+	</p>
+    <hr>
+    <p id="filelist" class="heading">File list</p>
+    <p class="indent courier">
+		<a href="annualplant_2spp_stoch_par.r">annualplant_2spp_stoch_par.r</a> (md5: a26d0a869658e71b0697ba5a1742d9c6)<br>
+		<a href="updateN_function.r">updateN_function.r</a> (md5: d892c5d88a9bf265b7c2cff5055639d7)<br>
+		<a href="simul_rare.txt">simul_rare.txt</a> (md5: 72bcbe599e0726ae36c75de30767fd75)
+	</p>
+    <p id="desc" class="heading">Description</p>
+    <p class="indent">
+        The <span class="courier">annualplant_2spp_stoch_par.r</span> file is the R code written to simulate frequency-dependent population growth. The file <span class="courier">updateN_function.r</span> is the population growth function used by <span class="courier">annualplant_2spp_stoch_par.r</span>, incorporating demographic stochasticity. The file <span class="courier">simul_rare.txt</span> describes all parameter combinations used in the simulations, as well as their deterministic solutions.
+	</p>
+	<p class="indent">Column definitions for <span class="courier">simul_rare.txt</span> follow:</p>
+	<div class="indent">
+		<p class="indent">
+			1 = l1-lambda 1<br>
+			2 = l2-lambda 2<br>
+			3 = a11-the intraspecific competition coefficient for species 1, alpha11<br>
+			4 = a12- the interspecific competition coefficient for species 1, alpha12<br>
+			5 = a21- the interspecific competition coefficient for species 2, alpha21<br>
+			6 = a22- the intraspecific competition coefficient for species 2, alpha22<br>
+			7 = N1- the deterministic abundance of species 1<br>
+			8 = N2- the deterministic abundance of species 1<br>
+			9 = E1- the fitness equivalence of species 1<br>
+			10 = S1- the strength of stabilization experienced by species 1<br>
+			11 = E2- the fitness equivalence of species 1<br>
+			12 = S2- the strength of stabilization experienced by species 2<br>
+			13 = Rare- the relative abundance of species 1<br>
+			14 = Asy- the difference between S1 and S2<br>
+			15 = cor- the covariance between stabilization (S1 and S2) and abundance (N1 and N2)<br>
+		</p>
+	</div>
+    <hr>
+    <p id="links" class="center">
+        <a href="../../../../default.htm" target="_top">ESA Publications</a> |
+		<a href="../../../default.htm" target="_top">Ecological Archives</a> |
+		<a href="../../../copyright.htm" target="_top">Permissions</a> |
+		<a href="../../../citation.htm" target="_top">Citation</a> |
+		<a href="../../../contacts.htm" target="_top">Contacts</a>
+    </p>
+  
+
+</body></html>

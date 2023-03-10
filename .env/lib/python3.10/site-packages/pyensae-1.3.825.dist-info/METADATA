@@ -1,0 +1,186 @@
+Metadata-Version: 2.1
+Name: pyensae
+Version: 1.3.825
+Summary: Helpers for teaching purposes (includes sqllite helpers).
+Home-page: http://www.xavierdupre.fr/app/pyensae/helpsphinx/index.html
+Author: Xavier Dupré
+Author-email: xavier.dupre@gmail.com
+License: MIT
+Download-URL: https://github.com/sdpython/pyensae/
+Keywords: pyensae,ENSAE,sqllite,database,teachings
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Education
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Development Status :: 5 - Production/Stable
+Requires-Dist: pyquickhelper (>=1.8)
+Provides-Extra: datasource
+Requires-Dist: dbread ; extra == 'datasource'
+Provides-Extra: finance
+Requires-Dist: pandas-datareader ; extra == 'finance'
+Provides-Extra: graphhelper
+Requires-Dist: matplotlib ; extra == 'graphhelper'
+Requires-Dist: blockdiag ; extra == 'graphhelper'
+Provides-Extra: languages
+Requires-Dist: antlr4-python3-runtime ; extra == 'languages'
+Provides-Extra: notebookhelper
+Requires-Dist: folium ; extra == 'notebookhelper'
+Requires-Dist: qgrid ; extra == 'notebookhelper'
+
+
+.. image:: https://github.com/sdpython/pyensae/blob/master/_doc/sphinxdoc/source/phdoc_static/project_ico.png?raw=true
+    :target: https://github.com/sdpython/pyensae/
+
+.. _l-README:
+
+pyensae: hide complexity for teachings
+======================================
+
+.. image:: https://travis-ci.org/sdpython/pyensae.svg?branch=master
+    :target: https://travis-ci.org/sdpython/pyensae
+    :alt: Build status
+
+.. image:: https://ci.appveyor.com/api/projects/status/jioxwx1igwbqwa28?svg=true
+    :target: https://ci.appveyor.com/project/sdpython/pyensae
+    :alt: Build Status Windows
+
+.. image:: https://circleci.com/gh/sdpython/pyensae/tree/master.svg?style=svg
+    :target: https://circleci.com/gh/sdpython/pyensae/tree/master
+
+.. image:: https://badge.fury.io/py/pyensae.svg
+    :target: https://pypi.org/project/pyensae/
+
+.. image:: https://img.shields.io/badge/license-MIT-blue.svg
+    :alt: MIT License
+    :target: http://opensource.org/licenses/MIT
+
+.. image:: https://requires.io/github/sdpython/pyensae/requirements.svg?branch=master
+     :target: https://requires.io/github/sdpython/pyensae/requirements/?branch=master
+     :alt: Requirements Status
+
+.. image:: https://codecov.io/github/sdpython/pyensae/coverage.svg?branch=master
+    :target: https://codecov.io/github/sdpython/pyensae?branch=master
+
+.. image:: http://img.shields.io/github/issues/sdpython/pyensae.png
+    :alt: GitHub Issues
+    :target: https://github.com/sdpython/pyensae/issues
+
+.. image:: http://www.xavierdupre.fr/app/pyensae/helpsphinx/_images/nbcov.png
+    :target: http://www.xavierdupre.fr/app/pyensae/helpsphinx/all_notebooks_coverage.html
+    :alt: Notebook Coverage
+
+.. image:: https://pepy.tech/badge/pyensae/month
+    :target: https://pepy.tech/project/pyensae/month
+    :alt: Downloads
+
+.. image:: https://img.shields.io/github/forks/sdpython/pyensae.svg
+    :target: https://github.com/sdpython/pyensae/
+    :alt: Forks
+
+.. image:: https://img.shields.io/github/stars/sdpython/pyensae.svg
+    :target: https://github.com/sdpython/pyensae/
+    :alt: Stars
+
+.. image:: https://pepy.tech/badge/pyensae/month
+    :target: https://pepy.tech/project/pyensae/month
+    :alt: Downloads
+
+.. image:: https://img.shields.io/github/forks/sdpython/pyensae.svg
+    :target: https://github.com/sdpython/pyensae/
+    :alt: Forks
+
+.. image:: https://img.shields.io/github/stars/sdpython/pyensae.svg
+    :target: https://github.com/sdpython/pyensae/
+    :alt: Stars
+
+This project contains helpers used at the `ENSAE <http://www.ensae.fr/>`_
+for teachings available at
+`ENSAE - Programmation - Xavier Dupré <http://www.xavierdupre.fr/app/ensae_teaching_cs/helpsphinx3/index.html>`_.
+It was the first module created for that usage.
+It does not have a clear purpose except hiding
+some annoying logic and shorten notebooks.
+It can:
+
+* retrieve data for practical lessons
+* import a tsv file into a database
+* retrieve stock prices from Yahoo Finance
+
+It implements a couple of magic commands to play with
+*SQLite3* in a notebook and easily show the head or tail
+of a text file. It can fill missing values in timeseries
+with *add_missing_indices* or download data from a website,
+a helper to change the size of *folium* maps or some grammar
+to parse language such as *R* or *SQL*. It also implements a basic
+way to convert a *R* script into nasty *Python*.
+
+**Links:**
+
+* `GitHub/pyensae <https://github.com/sdpython/pyensae/>`_
+* `documentation <http://www.xavierdupre.fr/app/pyensae/helpsphinx/index.html>`_
+* `Blog <http://www.xavierdupre.fr/app/pyensae/helpsphinx/blog/main_0000.html#ap-main-0>`_
+
+.. _l-HISTORY:
+
+=======
+History
+=======
+
+current - 2019-09-19 - 0.00Mb
+=============================
+
+* `30`: add a None ordered parameter (2019-09-19)
+* `31`: Remove strong dependency on qgrid (2019-09-19)
+* `28`: Python 2 vs Python 3 (2019-02-02)
+* `29`: StockPrice fails with pandas 0.24 (2019-02-02)
+* `26`: update default antlr4 version to 4.7.1 (2018-10-25)
+* `25`: update CSharp grammar (2018-10-25)
+
+1.2.788 - 2018-07-31 - 0.48Mb
+=============================
+
+* `21`: remove underscores in subfolders (2018-07-31)
+* `24`: fix download_data when url is a list or urls (2018-06-16)
+* `23`: fix add_missing_indices failing due to more strict comparisons in pandas 0.23 (2018-05-21)
+* `19`: velib collection, group files instead of having multiple files (moved to maydataapi) (2018-05-21)
+
+1.2.776 - 2018-05-20 - 0.48Mb
+=============================
+
+* `22`: move pandas_groupby_nan to pandas_streaming (2018-05-17)
+* `20`: move access to API to manydataapi (2018-05-05)
+
+1.2.743 - 2018-04-14 - 0.49Mb
+=============================
+
+1.2.731 - 2018-03-22 - 0.50Mb
+=============================
+
+* `18`: fix urls to download data (google, yahoo) (2018-03-16)
+
+1.2.722 - 2018-03-11 - 0.50Mb
+=============================
+
+* `17`: update candle plot for finance (matplotlib.finance was removed in 2.2.0) (2018-03-10)
+
+1.2.717 - 2018-02-20 - 0.50Mb
+=============================
+
+* `16`: split *pyensae* into *pyenbc* for remote access to clusters
+  and the rest (2017-11-29)
+
+1.1.689 - 2017-11-21 - 7.56Mb
+=============================
+
+* `15`: StockPrices: start and end date are not taking into account with the default data provider (2017-09-17)
+* `14`: StockPrices: switch to google as default data provider (2017-09-17)
+* `13`: add a class TableFormula as an example to extend pandas dataframe (2017-09-03)
+* `11`: create graph image with blockdiag (2017-08-18)
+* `10`: fix download_data (2017-08-12)
+* `9`: Finance (2017-08-05)
+* `5`: allow to submit a hive job on HDInsight from a notebook (2017-02-25)
+* `6`: fix appveyor build (2016-06-22)
+* `4`: use pyquickhelper magic parser to interpret python variable for azure magic commands (2016-05-14)
+
+

@@ -1,0 +1,8 @@
+# Requirements to run the code
+
+# Jupyter Notebooks
+jupyter==1.0.0
+notebook==6.4.12
+jupytext==1.14.1
+
+# Bifurcation

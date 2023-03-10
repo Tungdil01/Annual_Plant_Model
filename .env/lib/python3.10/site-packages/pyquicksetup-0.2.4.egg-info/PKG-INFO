@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: pyquicksetup
+Version: 0.2.4
+Summary: Predefined setup commands relying on pyquickhelper.
+Home-page: http://www.xavierdupre.fr/app/pyquickhelper/helpsphinx/index.html
+Author: Xavier Dupré
+Author-email: xavier.dupre@gmail.com
+License: MIT
+Download-URL: https://github.com/sdpython/pyquickhelper
+Keywords: pyquickhelper,setup,pyquicksetup
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Development Status :: 5 - Production/Stable
+
+Predefined setup commands relying on pyquickhelper.
+

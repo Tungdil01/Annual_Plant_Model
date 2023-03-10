@@ -1,0 +1,3 @@
+#!/home/tungdil/codes/Yenni/.env/bin/python3
+from numba.pycc import main
+main()
