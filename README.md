@@ -10,7 +10,7 @@ Try it out in your browser: [![Binder](https://mybinder.org/badge_logo.svg)](htt
 
 ## Development Environment
 
-We use jupyter notebooks to document results and for the sake of reproducibility. We provide a requirements.txt file in case you want to have the same development environment we have. We use Python >= 3.6.
+We use jupyter notebooks to document results and for the sake of reproducibility. We provide a [requirements file](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/requirements.txt) in case you want to have the same development environment we have. We use Python >= 3.6.
 
 For creating a virtual environment, you can use [venv](https://docs.python.org/3/tutorial/venv.html).
 
