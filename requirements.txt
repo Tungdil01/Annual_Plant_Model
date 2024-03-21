@@ -1,11 +1,11 @@
 # Requirements to run the code
 numpy==1.22.1
-scipy==1.7.3
+scipy==1.10.1
 pandas==1.4.3
 numba==0.56.0
 tqdm==4.65.0
 SALib==1.4.7
-statsmodels
+statsmodels==0.14.0
 scikit-learn==1.1.2
 #pymc3
 
