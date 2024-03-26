@@ -78,11 +78,11 @@ def calculate_metrics(l1, l2, a11, a12, a21, a22, N1, N2):
     Asy = S1 - S2  # Asymmetry
     Rare = 0 if N1 == 0 and N2 == 0 else N1 / (N1 + N2)
 
-    # Calculating correlation (previously named covariance):
+    # Calculating covariance:
     x = np.array([N1, N2])
     y = np.array([S1, S2])
     cor_matrix = np.cov(x, y)
-    cor = cor_matrix[0, 1]  # Extracting the correlation between N and S
+    cor = cor_matrix[0, 1]  # Extracting the covariance between N and S
     
     Rank = 0 if N1 == 0 and N2 == 0 else (2 if N1 / (N1 + N2) <= 0.25 else 1)
     
@@ -119,7 +119,6 @@ def postprocess_results(results, outfile):
     simul.to_csv(outfile, index=False)
 
 if __name__ == "__main__":
-    print(datetime.now())
     outfile = "csv/annplant_2spp_det_rare.csv"
     mesh = preprocess_data()
     results = np.empty((len(mesh), 17), dtype=float)

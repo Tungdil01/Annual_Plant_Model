@@ -16,7 +16,7 @@
 # ### The code aims to modify the analysis of Yenni et al. (2012):
 # #### - corrected the SoS calculation
 # #### - kept the parameters' variations from the code
-# #### - check with and without the additional filter S1 >= 1 & S2 >= 1
+# #### - removed the additional filter S1 >= 1 & S2 >= 1
 # #### - kept the truncated the values
 #
 # #### their original code: https://github.com/gmyenni/RareStabilizationSimulation
@@ -68,17 +68,17 @@ def calculate_metrics(l1, l2, a11, a12, a21, a22, N1, N2):
     CoexistRank = 0 if N1 < 1 else 1
 
 #     The original code of Yenni et al. replaced l1 with l2 in the numerator:
-#     S1 = l2 / (1 + (a12 / a22) * (l2 - 1))
-#     S2 = l1 / (1 + (a21 / a11) * (l1 - 1))
+    S1 = l2 / (1 + (a12 / a22) * (l2 - 1))
+    S2 = l1 / (1 + (a21 / a11) * (l1 - 1))
 #     # Corrected Strength of Stabilization:
-    S1 = l1 / (1 + (a12 / a22) * (l2 - 1))
-    S2 = l2 / (1 + (a21 / a11) * (l1 - 1))
+#     S1 = l1 / (1 + (a12 / a22) * (l2 - 1))
+#     S2 = l2 / (1 + (a21 / a11) * (l1 - 1))
 
     E1, E2 = l1 / l2, l2 / l1  # Fitness equivalence
     Asy = S1 - S2  # Asymmetry
     Rare = 0 if N1 == 0 and N2 == 0 else N1 / (N1 + N2)
 
-    # Calculating correlation (previously named covariance):
+    # Calculating covariance:
     x = np.array([N1, N2])
     y = np.array([S1, S2])
     cor_matrix = np.cov(x, y)
@@ -102,12 +102,6 @@ def preprocess_data():
     a12_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
     a21_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
     a22_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-#     l1_v = np.arange(15, 21)
-#     l2_v = np.arange(11, 21)
-#     a11_v = np.arange(0.7, 3,0.1)
-#     a12_v = np.arange(0.1, 1,0.1)
-#     a21_v = np.arange(0.1, 1,0.1)
-#     a22_v = np.arange(0.1, 1,0.1)
 
     # Generate all combinations of parameters using NumPy's meshgrid
     mesh = np.array(np.meshgrid(l1_v, l2_v, a11_v, a12_v, a21_v, a22_v)).T.reshape(-1, 6)
@@ -120,12 +114,11 @@ def Sim(k, mesh_row):
     return np.array([l1, l2, a11, a12, a21, a22, N1, N2, E1, E2, S1, S2, Rank, CoexistRank, Asy, cov, Rare])
 
 def postprocess_results(results, outfile):
-    column_order = ['l1', 'l2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'S1', 'S2', 'E1', 'E2', 'Rank', 'CoexistRank', 'Asy', 'cor', 'Rare']
+    column_order = ['l1', 'l2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'E1', 'S1', 'E2', 'S2', 'Rank', 'CoexistRank', 'Asy', 'cor', 'Rare']
     simul = pd.DataFrame(results, columns=column_order)
     simul.to_csv(outfile, index=False)
 
 if __name__ == "__main__":
-    print(datetime.now())
     outfile = "csv/annplant_2spp_det_rare.csv"
     mesh = preprocess_data()
     results = np.empty((len(mesh), 17), dtype=float)
