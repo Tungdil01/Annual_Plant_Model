@@ -68,11 +68,11 @@ def calculate_metrics(l1, l2, a11, a12, a21, a22, N1, N2):
     CoexistRank = 0 if N1 < 1 else 1
 
 #     The original code of Yenni et al. replaced l1 with l2 in the numerator:
-    S1 = l2 / (1 + (a12 / a22) * (l2 - 1))
-    S2 = l1 / (1 + (a21 / a11) * (l1 - 1))
+#     S1 = l2 / (1 + (a12 / a22) * (l2 - 1))
+#     S2 = l1 / (1 + (a21 / a11) * (l1 - 1))
 #     # Corrected Strength of Stabilization:
-#     S1 = l1 / (1 + (a12 / a22) * (l2 - 1))
-#     S2 = l2 / (1 + (a21 / a11) * (l1 - 1))
+    S1 = l1 / (1 + (a12 / a22) * (l2 - 1))
+    S2 = l2 / (1 + (a21 / a11) * (l1 - 1))
 
     E1, E2 = l1 / l2, l2 / l1  # Fitness equivalence
     Asy = S1 - S2  # Asymmetry
@@ -134,7 +134,7 @@ if __name__ == "__main__":
 
 def cor_figure():
     dat_det = pd.read_csv("csv/annplant_2spp_det_rare.csv")
-    dat_det = dat_det.query('Rank == 2 & S1 >= 1 & S2 >= 1').copy() # Apply filter  
+    dat_det = dat_det.query('Rank == 2').copy() # Apply filter  & S1 >= 1 & S2 >= 1
     dat_det.reset_index(drop=True, inplace=True)
     dat_det = np.trunc(dat_det * 100) / 100.0  # Truncate to two decimals
     dat_det.sort_values(by=['a22', 'a21', 'a12', 'a11', 'l2', 'l1'], inplace=True)
