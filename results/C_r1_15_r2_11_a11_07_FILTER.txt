@@ -1,0 +1,64 @@
+Analysis for All Scenarios:
+
+--- Analysis for SoS ---
+
+SoS Analysis:
+                 Generalized Linear Model Regression Results                  
+==============================================================================
+Dep. Variable:            CoexistRank   No. Observations:                19514
+Model:                            GLM   Df Residuals:                    19510
+Model Family:                Binomial   Df Model:                            3
+Link Function:                  Logit   Scale:                          1.0000
+Method:                          IRLS   Log-Likelihood:                -421.17
+Date:                Tue, 14 May 2024   Deviance:                       842.34
+Time:                        11:47:11   Pearson chi2:                 1.87e+03
+No. Iterations:                    14   Pseudo R-squ. (CS):             0.7175
+Covariance Type:            nonrobust                                         
+==============================================================================
+                 coef    std err          z      P>|z|      [0.025      0.975]
+------------------------------------------------------------------------------
+const       -387.6330     19.652    -19.725      0.000    -426.151    -349.115
+S1           163.2907      7.942     20.561      0.000     147.725     178.856
+E1           221.1329     11.717     18.873      0.000     198.168     244.097
+cor_sos       -0.0199      0.002     -9.637      0.000      -0.024      -0.016
+==============================================================================
+
+Analysis on Negative ν for COR_SOS:
+Proportion of coexistence with ν < 0: 0.8680 (95% CI: (0.8462070434144677, 0.8871101382040556))
+Proportion of coexistence with ν ≥ 0: 0.6266 (95% CI: (0.6195607701976725, 0.6335147847926844))
+Coexistence and Exclusion based on ν for SoS:
+              ν ≥ 0  ν < 0
+Coexistence  11567    914
+Exclusion     6894    139
+Higher coexistence observed with ν < 0 for SoS, supporting the authors' results.
+
+--- Analysis for CA ---
+
+CA Analysis:
+                 Generalized Linear Model Regression Results                  
+==============================================================================
+Dep. Variable:            CoexistRank   No. Observations:                19514
+Model:                            GLM   Df Residuals:                    19511
+Model Family:                Binomial   Df Model:                            2
+Link Function:                  Logit   Scale:                          1.0000
+Method:                          IRLS   Log-Likelihood:                -11131.
+Date:                Tue, 14 May 2024   Deviance:                       22262.
+Time:                        11:47:11   Pearson chi2:                 2.95e+04
+No. Iterations:                     6   Pseudo R-squ. (CS):             0.1534
+Covariance Type:            nonrobust                                         
+==============================================================================
+                 coef    std err          z      P>|z|      [0.025      0.975]
+------------------------------------------------------------------------------
+const         -1.7806      0.057    -31.005      0.000      -1.893      -1.668
+CA1            0.1019      0.002     42.792      0.000       0.097       0.107
+cor_ca        -0.0011   3.29e-05    -34.746      0.000      -0.001      -0.001
+==============================================================================
+
+Analysis on Negative ν for COR_CA:
+Proportion of coexistence with ν < 0: 1.0000 (95% CI: (0.9891127906750712, 1.0))
+Proportion of coexistence with ν ≥ 0: 0.6330 (95% CI: (0.626179208943937, 0.6398253908099859))
+Coexistence and Exclusion based on ν for CA:
+              ν ≥ 0  ν < 0
+Coexistence  12132    349
+Exclusion     7033      0
+Higher coexistence observed with ν < 0 for CA, supporting the authors' results.

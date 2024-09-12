@@ -1,0 +1,66 @@
+# Functional Responses
+## they are separated this way to just make it more readable
+
+RFMA=(aMA*A)/(1+aMA*hMA*A+aMT*hMT*TT+aMIM*hMIM*IM)
+RFMT=(aMT*TT)/(1+aMA*hMA*A+aMT*hMT*TT+aMIM*hMIM*IM)
+RFMIM=(aMIM*IM)/(1+aMA*hMA*A+aMT*hMT*TT+aMIM*hMIM*IM)
+RFOA=(aOA*A)/(1+aOM*hOM*M+aOA*hOA*A+aOT*hOT*TT+aOIO*hOIO*IO)
+RFOT=(aOT*TT)/(1+aOM*hOM*M+aOA*hOA*A+aOT*hOT*TT+aOIO*hOIO*IO)
+RFOM=(aOM*M)/(1+aOM*hOM*M+aOA*hOA*A+aOT*hOT*TT+aOIO*hOIO*IO)
+RFOIO=(aOIO*IO)/(1+aOM*hOM*M+aOA*hOA*A+aOT*hOT*TT+aOIO*hOIO*IO)
+
+# Differential Equations
+
+dA/dt=rA*A*(1-A/KA)-RFMA*M-RFOA*O
+dTT/dt=rT*TT*(1-TT/KT)-RFMT*M-RFOT*O
+dM/dt=efAM*RFMA*M+efTM*RFMT*M+efIMM*RFMIM*M-RFOM*O-mM*M-qM*M^2
+dO/dt=efAO*RFOA*O+efTO*RFOT*O+efMO*RFOM*O+efIOO*RFOIO*O-mO*O-qO*O^2
+
+# Parameters
+
+p aOM=1.5
+p rA=1.12
+p KA=9.12
+p rT=1.1
+p KT=3.444
+p aMA=1
+p aMT=1
+p aMIM=0.1
+p hMA=2
+p hMT=2
+p hMIM=2
+p efAM=5
+p efTM=5
+p efIMM=5
+p mM=0.1
+p qM=0.5
+p aOA=0.9
+p aOT=0.9
+p aOIO=0.1
+p hOA=2
+p hOT=2
+p hOM=2
+p hOIO=2
+p efAO=5
+p efTO=5
+p efMO=2
+p efIOO=2
+p mO=0.1
+p qO=0.5
+p IM=0.1
+p IO=0.1
+
+# Initial Conditions
+
+A(0)=6.05
+TT(0)=2.26
+M(0)=4.02
+O(0)=4.61
+
+# XPPAUT Parameters
+
+@xp=A,yp=M,zp=O
+@xmin=0,ymin=0,xmax=5,ymax=5
+@parmin=0,parmax=10000
+@dsmin=0.001,ds=0.01,dsmax=0.1
+done
