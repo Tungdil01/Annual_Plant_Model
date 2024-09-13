@@ -14,7 +14,6 @@
 # ---
 
 # ### The code aims to modify the analysis of Yenni et al. (2012):
-# #### - modifies the parameters to paper's description: "r2 integers from 11 to 20"
 # #### - removes the filter S1 >= 1 & S2 >= 1
 # #### - does not truncate the values
 #
@@ -34,7 +33,7 @@ from sklearn.preprocessing import StandardScaler
 
 # # analyN_function.r
 
-def analyN(r1, r2, a1, a12, a21, a2):
+def analyN(r1, r2, a1, a12, a21, a2): # equilibrium populations
     N1 = (r1 - 1 - (a12 / a2) * (r2 - 1)) / (a1 - a21 * a12 / a2)
     N2 = (r2 - 1 - (a21 / a1) * (r1 - 1)) / (a2 - a21 * a12 / a1)
     if np.isinf(N1) or np.isinf(N2) or np.isnan(N1) or np.isnan(N2):
@@ -59,7 +58,7 @@ def analyN(r1, r2, a1, a12, a21, a2):
 # # getNFD.r
 
 # +
-def getPCG(r1, r2, a11, a12, a21, a22, N1, N2):
+def getPCG(r1, r2, a11, a12, a21, a22, N1, N2): # per capita growth rate
     newN1 = r1 * N1 / (1 + a11 * N1 + a12 * N2)
     newN2 = r2 * N2 / (1 + a22 * N2 + a21 * N1)
     PGR1 = np.log(newN1) - np.log(N1)
@@ -108,13 +107,13 @@ def preprocess_data(pars):
          a12_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
          a21_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
          a22_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-    elif pars == 'table1': # Reproduce their Table 1
-        l1_v = np.arange(15, 21, 1)
-        l2_v = np.arange(15, 21, 1)
-        a11_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1, 1.5, 2, 2.5, 3])
-        a12_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-        a21_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-        a22_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
+    elif pars == 'minimal': # Reduced set of parameters
+        l1_v = np.array([15, 17, 18, 20])
+        l2_v = np.array([15, 17, 18, 20])
+        a11_v = np.array([0.1, 1, 3])
+        a12_v = np.array([0.1, 0.5, 1])
+        a21_v = np.array([0.1, 0.5, 1])
+        a22_v = np.array([0.1, 0.5, 1])
     elif pars == 'paper': # They describe in the paper
          l1_v = np.arange(15, 21, 1)
          l2_v = np.arange(11, 21, 1)
@@ -122,13 +121,13 @@ def preprocess_data(pars):
          a12_v = np.arange(0.1, 1, 0.1)
          a21_v = np.arange(0.1, 1, 0.1)
          a22_v = np.arange(0.1, 1, 0.1)
-    else: # minimal: reduced sets of parameters based on the range of their Table 1
-        l1_v = np.array([15, 17, 18, 20])
-        l2_v = np.array([15, 17, 18, 20])
-        a11_v = np.array([0.1, 1, 3])
-        a12_v = np.array([0.1, 0.5, 1])
-        a21_v = np.array([0.1, 0.5, 1])
-        a22_v = np.array([0.1, 0.5, 1])
+    else: # table1: Reproduce their Table 1
+        l1_v = np.arange(15, 21, 1)
+        l2_v = np.arange(15, 21, 1)
+        a11_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1, 1.5, 2, 2.5, 3])
+        a12_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
+        a21_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
+        a22_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
     # Generate all combinations of parameters using NumPy's meshgrid
     mesh = np.array(np.meshgrid(l1_v, l2_v, a11_v, a12_v, a21_v, a22_v)).T.reshape(-1, 6)
     return mesh
@@ -149,16 +148,17 @@ def postprocess_results(results, outfile):
 
 # # cor_figure.r
 
-def cor_figure(filter):
+def cor_figure(filter, truncate=False):
     dat_det = pd.read_csv("csv/annplant_2spp_det_rare.csv")
     if filter == 'inverted':
-        dat_det = dat_det.query('Rank == 2 & & S1 < 1 & S2 < 1').copy()
+        dat_det = dat_det.query('Rank == 2 & S1 < 1 & S2 < 1').copy()
     elif filter == 'on':
         dat_det = dat_det.query('Rank == 2 & S1 >= 1 & S2 >= 1').copy()
     else: # 'off'
         dat_det = dat_det.query('Rank == 2').copy()
     dat_det.reset_index(drop=True, inplace=True)
-#     dat_det = np.trunc(dat_det * 100) / 100.0
+    if truncate:
+        dat_det = np.trunc(dat_det * 100) / 100.0
     dat_det.sort_values(by=['a22', 'a21', 'a12', 'a11', 'l2', 'l1'], inplace=True)
     dat_det.to_csv("csv/annplant_2spp_det_rare_filtered.csv", index=False)
 
@@ -176,18 +176,14 @@ def perform_logistic_regression(dat, analysis_type, print_on=False):
     model = sm.GLM(y, X, family=sm.families.Binomial())
     result = model.fit()
     print(result.summary())
-    print('\n------------\n')
     coef = result.params
     std_err = result.bse
     z_scores = result.tvalues
     p_values = result.pvalues
     intercept = coef[0]
     coef = coef[1:]
-    #extract p-values for all predictor variables
-    print('p-values:\n')
-    for num_pred in range (0, 4):
-        print(result.pvalues[num_pred])
-    if print_on:
+    if print_on: # same analysis in more detail
+        print("\n\n--------------------------------------------------------\n\n")
         result_table = result.summary2().tables[1]
         # Apply maximum precision to coefficient-related statistics
         result_table['Coef.'] = result_table['Coef.']
@@ -195,7 +191,7 @@ def perform_logistic_regression(dat, analysis_type, print_on=False):
         result_table['z'] = result_table['z'].apply(lambda x: np.format_float_scientific(x, precision=4))
         result_table['P>|z|'] = result_table['P>|z|'].apply(lambda x: np.format_float_scientific(x, precision=4))
         result_table = result_table.round(4)
-        print(f"\n{analysis_type} Analysis (statsmodels):")
+        print(f"\n{analysis_type} Analysis (in more detail):")
         print(result_table)
     return intercept, coef, std_err, z_scores, p_values
 
@@ -217,7 +213,7 @@ def report_coexistence_analysis(proportions, correlation_type):
     print(f"Proportion of coexistence with \u03BD \u2265 0: {proportions[positive_key] / (proportions[positive_key] + proportions[f'positive_exclusion_{correlation_type}']):.4f} (95% CI: {pos_confint})")
     print(f"Proportion of coexistence with \u03BD < 0: {proportions[negative_key] / (proportions[negative_key] + proportions[f'negative_exclusion_{correlation_type}']):.4f} (95% CI: {neg_confint})")
     
-def analyze_coexistence_effect(data):
+def analyze_coexistence_effect(data, print_on):
     original_dat = data.copy()
     models_results = {}
     for correlation_type in ['SoS']:
@@ -226,7 +222,7 @@ def analyze_coexistence_effect(data):
         if correlation_column not in data.columns:
             continue
         print(f"\n--- Analysis for {analysis_type} ---")
-        intercept, coef, std_err, z_scores, p_values = perform_logistic_regression(data, analysis_type, print_on=True)
+        intercept, coef, std_err, z_scores, p_values = perform_logistic_regression(data, analysis_type, print_on=print_on)
         models_results[analysis_type] = {
             'statsmodels': (intercept, coef, std_err, z_scores, p_values),
         }
@@ -329,7 +325,6 @@ def plot_phase_plane():
         P = [0, (r1 - 1) / a12]
         E0 = [0, 0]
         # Calculate the intersection point of lines (E1, Q) and (E2, P)
-        # Solve the system of linear equations for intersection
         a1 = (P[1] - E1[1]) / (P[0] - E1[0]) if P[0] != E1[0] else float('inf')
         b1 = E1[1] - a1 * E1[0]
         a2 = (E2[1] - Q[1]) / (E2[0] - Q[0]) if E2[0] != Q[0] else float('inf')
@@ -442,19 +437,19 @@ def main():
     initial_output_file = "csv/annplant_2spp_det_rare.csv"
     filtered_output_file = "csv/annplant_2spp_det_rare_filtered.csv"
     # Generate the parameter mesh
-    mesh = preprocess_data('minimal') # options: r_code, table1, paper, or minimal
+    mesh = preprocess_data('table1') # options: r_code, table1, paper, or minimal
     # Run the simulation for each parameter set in the mesh
     results = [Sim(k, row) for k, row in enumerate(mesh)]
     # Convert the list of dictionaries into a DataFrame and save to CSV
     results_df = pd.DataFrame(results)
     results_df.to_csv(initial_output_file, index=False)
     # Apply filters and generate the filtered data CSV
-    cor_figure('off') # options: on, off, or inverted
+    cor_figure('on', truncate=False) # options: on, off, or inverted
     # Load the filtered data from CSV into a DataFrame
     filtered_data = pd.read_csv(filtered_output_file)
     # Analysis for all scenarios using the filtered dataset
     print("Analysis for All Scenarios:")
-    models_results = analyze_coexistence_effect(filtered_data)  # Pass DataFrame directly
+    models_results = analyze_coexistence_effect(filtered_data, print_on=False)  # Pass DataFrame directly
     print("\n\n--------------------------------------------------------\n\n")
 #    # Call the function to generate and save the plots
     plot_phase_plane()
