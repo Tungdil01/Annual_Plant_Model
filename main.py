@@ -65,11 +65,11 @@ def getPCG(r1, r2, a11, a12, a21, a22, N1, N2): # per capita growth rate
     PGR2 = np.log(newN2) - np.log(N2)
     return PGR1, PGR2
 
-def calculate_metrics(l1, l2, a11, a12, a21, a22, N1, N2):
+def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2):
     Coexist = 0 if N1 < 1 else 1
-    S1 = l2 / (1 + (a12 / a22) * (l2 - 1))
-    S2 = l1 / (1 + (a21 / a11) * (l1 - 1))
-    FE1, FE2 = l1 / l2, l2 / l1  # Fitness equivalence
+    S1 = r2 / (1 + (a12 / a22) * (r2 - 1))
+    S2 = r1 / (1 + (a21 / a11) * (r1 - 1))
+    FE1, FE2 = r1 / r2, r2 / r1  # Fitness equivalence
     Asy = S1 - S2  # Asymmetry
     Rare = 0 if N1 == 0 and N2 == 0 else N1 / (N1 + N2)
     # Calculating covariance for SoS
@@ -79,17 +79,17 @@ def calculate_metrics(l1, l2, a11, a12, a21, a22, N1, N2):
     cor_sos = cor_matrix_sos[0, 1]  # Extracting the correlation between N and SoS
     Rank = 0 if N1 == 0 and N2 == 0 else (2 if N1 / (N1 + N2) <= 0.25 else 1)
     # Equilibrium points
-    E1 = (l1 - 1) / a11
-    E2 = (l2 - 1) / a22
-    P = (l1 - 1) / a12
-    Q = (l2 - 1) / a21
+    E1 = (r1 - 1) / a11
+    E2 = (r2 - 1) / a22
+    P = (r1 - 1) / a12
+    Q = (r2 - 1) / a21
     # Calculate conditions for A, B, C, D
     A = P > E2 and E1 > Q
     B = E2 > P and Q > E1
     C = P > E2 and Q > E1
     D = E2 > P and E1 > Q
     # Call getPCG to calculate PGR1 and PGR2
-    PGR1, PGR2 = getPCG(l1, l2, a11, a12, a21, a22, N1, N2)
+    PGR1, PGR2 = getPCG(r1, r2, a11, a12, a21, a22, N1, N2)
     return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D}
 
 
@@ -101,45 +101,45 @@ def calculate_metrics(l1, l2, a11, a12, a21, a22, N1, N2):
 def preprocess_data(pars):
     # Defines frequency-dependent parameters
     if pars == 'r_code': # Their R code
-         l1_v = np.arange(10, 21, 1)
-         l2_v = np.arange(10, 21, 1)
+         r1_v = np.arange(10, 21, 1)
+         r2_v = np.arange(10, 21, 1)
          a11_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1, 1.5, 2, 2.5, 3])
          a12_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
          a21_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
          a22_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-    elif pars == 'minimal': # Reduced set of parameters
-        l1_v = np.array([15, 17, 18, 20])
-        l2_v = np.array([15, 17, 18, 20])
-        a11_v = np.array([0.1, 1, 3])
-        a12_v = np.array([0.1, 0.5, 1])
-        a21_v = np.array([0.1, 0.5, 1])
-        a22_v = np.array([0.1, 0.5, 1])
-    elif pars == 'paper': # They describe in the paper
-         l1_v = np.arange(15, 21, 1)
-         l2_v = np.arange(11, 21, 1)
-         a11_v = np.arange(0.7, 1, 0.1)
-         a12_v = np.arange(0.1, 1, 0.1)
-         a21_v = np.arange(0.1, 1, 0.1)
-         a22_v = np.arange(0.1, 1, 0.1)
-    else: # table1: Reproduce their Table 1
-        l1_v = np.arange(15, 21, 1)
-        l2_v = np.arange(15, 21, 1)
+    elif pars == 'table1': # Reproduce their Table 1
+        r1_v = np.arange(15, 21, 1)
+        r2_v = np.arange(15, 21, 1)
         a11_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1, 1.5, 2, 2.5, 3])
         a12_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
         a21_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
         a22_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
+    elif pars == 'paper': # They describe in the paper
+         r1_v = np.arange(15, 21, 1)
+         r2_v = np.arange(11, 21, 1)
+         a11_v = np.array([0.7, 0.3, 0.5, 0.7, 0.9, 1, 1.5, 2, 2.5, 3])
+         a12_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
+         a21_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
+         a22_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
+    else: # minimal: Reduced set of parameters
+        r1_v = np.array([15, 17, 18, 20])
+        r2_v = np.array([15, 17, 18, 20])
+        a11_v = np.array([0.1, 1, 3])
+        a12_v = np.array([0.1, 0.5, 1])
+        a21_v = np.array([0.1, 0.5, 1])
+        a22_v = np.array([0.1, 0.5, 1])
     # Generate all combinations of parameters using NumPy's meshgrid
-    mesh = np.array(np.meshgrid(l1_v, l2_v, a11_v, a12_v, a21_v, a22_v)).T.reshape(-1, 6)
+    mesh = np.array(np.meshgrid(r1_v, r2_v, a11_v, a12_v, a21_v, a22_v)).T.reshape(-1, 6)
     return mesh
 
 def Sim(k, mesh_row):
-    l1, l2, a11, a12, a21, a22 = mesh_row
-    N1, N2 = analyN(l1, l2, a11, a12, a21, a22)
-    metrics = calculate_metrics(l1, l2, a11, a12, a21, a22, N1, N2)
-    return {**metrics, "N1": N1, "N2": N2, "l1": l1, "l2": l2, "a11": a11, "a12": a12, "a21": a21, "a22": a22}
+    r1, r2, a11, a12, a21, a22 = mesh_row
+    N1, N2 = analyN(r1, r2, a11, a12, a21, a22)
+    metrics = calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2)
+    return {**metrics, "N1": N1, "N2": N2, "r1": r1, "r2": r2, "a11": a11, "a12": a12, "a21": a21, "a22": a22}
 
 def postprocess_results(results, outfile):
-    column_order = ['l1', 'l2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'FE1', 'S1', 'FE2', 'S2', 'Rank', 'Coexist', 'Asy', 'cor_sos', 'Rare', 'PGR1', 'PGR2', 'A', 'B', 'C', 'D']
+    column_order = ['r1', 'r2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'FE1', 'S1', 'FE2', 'S2', 'Rank', 'Coexist', 'Asy', 'cor_sos', 'Rare', 'PGR1', 'PGR2', 'A', 'B', 'C', 'D']
     simul = pd.DataFrame(results, columns=column_order)
     simul.to_csv(outfile, index=False)
 
@@ -159,7 +159,7 @@ def cor_figure(filter, truncate=False):
     dat_det.reset_index(drop=True, inplace=True)
     if truncate:
         dat_det = np.trunc(dat_det * 100) / 100.0
-    dat_det.sort_values(by=['a22', 'a21', 'a12', 'a11', 'l2', 'l1'], inplace=True)
+    dat_det.sort_values(by=['a22', 'a21', 'a12', 'a11', 'r2', 'r1'], inplace=True)
     dat_det.to_csv("csv/annplant_2spp_det_rare_filtered.csv", index=False)
 
 
@@ -257,10 +257,10 @@ def count_abcd(filtered_data):
     count_D_0, count_D_1 = 0, 0
     # Loop over the filtered dataset and apply the conditions for A, B, C, D
     for index, row in filtered_data.iterrows():
-        P = (row['l1'] - 1) / row['a12']
-        E2 = (row['l2'] - 1) / row['a22']
-        Q = (row['l2'] - 1) / row['a21']
-        E1 = (row['l1'] - 1) / row['a11']
+        P = (row['r1'] - 1) / row['a12']
+        E2 = (row['r2'] - 1) / row['a22']
+        Q = (row['r2'] - 1) / row['a21']
+        E1 = (row['r1'] - 1) / row['a11']
         if P > E2 and E1 > Q:
             if row['Coexist'] == 0:
                 count_A_0 += 1
@@ -302,10 +302,10 @@ def count_abcd(filtered_data):
 def plot_phase_plane():
     # Parameters for each scenario
     scenarios = {
-        "(a) A1: $E_1 > Q$ and $P > E_2$": {'r1': 18, 'r2': 16, 'a11': 0.5, 'a12': 1, 'a21': 1, 'a22': 1},
-        "(b) A2: $Q > E_1$ and $E_2 > P$": {'r1': 20, 'r2': 15, 'a11': 2, 'a12': 1, 'a21': 1, 'a22': 0.5},
-        "(c) B: $Q > E_1$ and $P > E_2$":  {'r1': 20, 'r2': 15, 'a11': 3, 'a12': 0.5, 'a21': 1, 'a22': 0.5},
-        "(d) C: $E_1 > Q$ and $E_2 > P$":  {'r1': 16, 'r2': 18, 'a11': 0.3, 'a12': 1, 'a21': 1, 'a22': 0.5},
+        "A: $E_1 > Q$ and $P > E_2$": {'r1': 18, 'r2': 16, 'a11': 0.5, 'a12': 1, 'a21': 1, 'a22': 1},
+        "B: $Q > E_1$ and $E_2 > P$": {'r1': 20, 'r2': 15, 'a11': 2, 'a12': 1, 'a21': 1, 'a22': 0.5},
+        "C: $Q > E_1$ and $P > E_2$":  {'r1': 20, 'r2': 15, 'a11': 3, 'a12': 0.5, 'a21': 1, 'a22': 0.5},
+        "D: $E_1 > Q$ and $E_2 > P$":  {'r1': 16, 'r2': 18, 'a11': 0.3, 'a12': 1, 'a21': 1, 'a22': 0.5},
     }    
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
     axes = axes.flatten()    
