@@ -27,33 +27,128 @@ import matplotlib.pyplot as plt
 import statsmodels.api as sm
 from statsmodels.stats.proportion import proportion_confint
 from scipy import stats
+from scipy.stats import ttest_ind, mannwhitneyu, shapiro
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.preprocessing import StandardScaler
 
 
 # # analyN_function.r
 
-def analyN(r1, r2, a1, a12, a21, a2): # equilibrium populations
-    N1 = (r1 - 1 - (a12 / a2) * (r2 - 1)) / (a1 - a21 * a12 / a2)
-    N2 = (r2 - 1 - (a21 / a1) * (r1 - 1)) / (a2 - a21 * a12 / a1)
+def analyN(r1, r2, a11, a12, a21, a22): # equilibrium populations
+    N1 = (r1 - 1 - (a12 / a22) * (r2 - 1)) / (a11 - a21 * a12 / a22)
+    N2 = (r2 - 1 - (a21 / a11) * (r1 - 1)) / (a22 - a21 * a12 / a11)
     if np.isinf(N1) or np.isinf(N2) or np.isnan(N1) or np.isnan(N2):
         initialNsp1 = 0
         initialNsp2 = 0
         N = np.zeros((100, 2))
         N[0, :] = [initialNsp1, initialNsp2]   
         for i in range(1, 100):
-            N[i, 0] = max((r1 - 1 - a12 * N[i-1, 1]) / a1, 0)
-            N[i, 1] = max((r2 - 1 - a21 * N[i-1, 0]) / a2, 0)
+            N[i, 0] = max((r1 - 1 - a12 * N[i-1, 1]) / a11, 0)
+            N[i, 1] = max((r2 - 1 - a21 * N[i-1, 0]) / a22, 0)
         N1 = np.mean(N[:, 0])
         N2 = np.mean(N[:, 1])
     if N1 < 0 and N2 >= 0:
         N1 = 0
-        N2 = (r2 - 1) / a2
+        N2 = (r2 - 1) / a22
     elif N2 < 0 and N1 >= 0:
         N2 = 0
-        N1 = (r1 - 1) / a1
+        N1 = (r1 - 1) / a11
     return N1, N2
 
+
+# +
+def time_simul(r1, r2, a11, a12, a21, a22):
+    y01, y02 =5, 5
+    y1 = np.array([y01], dtype=np.float64)
+    y2 = np.array([y02], dtype=np.float64)
+    i, stopRun = 0, 0
+    count_PGR1, count_PGR2 = 0, 0
+    while stopRun == 0:  # stops the simulation when the dynamics converges
+        per_cap1 = r1 / (1 + a11 * y1[i] + a12 * y2[i])
+        per_cap2 = r2 / (1 + a22 * y2[i] + a21 * y1[i])
+        if per_cap1 > per_cap2:
+            count_PGR1 += 1
+        elif per_cap2 > per_cap1:
+            count_PGR2 += 1
+        y1 = np.append(y1, y1[i] * per_cap1)
+        y2 = np.append(y2, y2[i] * per_cap2)        
+        if np.abs(y1[-1] - y1[-2]) < 1.0e-5 and np.abs(y2[-1] - y2[-2]) < 1.0e-5:
+            stopRun = 1
+        i += 1
+        if i > 10000:
+            break
+    return y1[-1], y2[-1], count_PGR1, count_PGR2
+
+def compare_counts_test(filtered_data, use_pcg=False, print_on=False):
+    if use_pcg:
+        # Calculate PGR1 and PGR2 using getPCG for each row
+        count_PGR1, count_PGR2 = [], []
+        for _, row in filtered_data.iterrows():
+            PGR1, PGR2 = getPCG(row['r1'], row['r2'], row['a11'], row['a12'], row['a21'], row['a22'], row['N1'], row['N2'])
+            count_PGR1.append(PGR1)
+            count_PGR2.append(PGR2)
+    else:
+        # Use count_PGR1 and count_PGR2 from the filtered data
+        count_PGR1 = filtered_data['count_PGR1'].tolist()
+        count_PGR2 = filtered_data['count_PGR2'].tolist()
+    # Ensure the inputs are numpy arrays for accurate mean and std calculations
+    count_PGR1 = np.array(count_PGR1)
+    count_PGR2 = np.array(count_PGR2)
+    # Check for normality using Shapiro-Wilk test
+    stat1, p_norm1 = shapiro(count_PGR1)
+    stat2, p_norm2 = shapiro(count_PGR2)
+    normality = (p_norm1 > 0.05) and (p_norm2 > 0.05)
+    if normality:
+        # Perform t-test if data is normally distributed
+        t_stat, p_value = ttest_ind(count_PGR1, count_PGR2, equal_var=False)
+        test_type = 'T-test'
+    else:
+        # Perform Mann-Whitney U test if data is not normally distributed
+        t_stat, p_value = mannwhitneyu(count_PGR1, count_PGR2, alternative='two-sided')
+        test_type = 'Mann-Whitney U Test'
+    # Calculate mean and standard deviation
+    mean1 = np.mean(count_PGR1)
+    mean2 = np.mean(count_PGR2)
+    std1 = np.std(count_PGR1, ddof=1)
+    std2 = np.std(count_PGR2, ddof=1)
+    # Determine which mean is larger
+    larger_mean = "count_PGR1" if mean1 > mean2 else "count_PGR2"
+    # Print simplified results if print_on=False
+    if not print_on:
+        print(f"{test_type} Results:")
+        print(f"T-statistic = {t_stat:.4f}, p-value = {p_value:.4f}")
+        print(f"Larger mean: {larger_mean}\n")
+    else:
+        # Print detailed statistics if print_on=True
+        print(f"Normality Test (Shapiro-Wilk):\n")
+        print(f"count_PGR1: W-statistic = {stat1:.4f}, p-value = {p_norm1:.4f}")
+        print(f"count_PGR2: W-statistic = {stat2:.4f}, p-value = {p_norm2:.4f}")
+        print(f"Data is normally distributed: {normality}")
+        print(f"\n{test_type} Results:")
+        print(f"T-statistic = {t_stat:.4f}, p-value = {p_value:.4f}")
+        print(f"Mean of count_PGR1: {mean1:.6f}")
+        print(f"Mean of count_PGR2: {mean2:.6f}")
+        print(f"Standard deviation of count_PGR1: {std1:.6f}")
+        print(f"Standard deviation of count_PGR2: {std2:.6f}")
+        print(f"Larger mean: {larger_mean}")
+    # Return a detailed report as a dictionary
+    result = {
+        "test_type": test_type,
+        "t_stat": t_stat,
+        "p_value": p_value,
+        "mean_PGR1": mean1,
+        "mean_PGR2": mean2,
+        "std_PGR1": std1,
+        "std_PGR2": std2,
+        "larger_mean": larger_mean,
+        "normality_PGR1": p_norm1,
+        "normality_PGR2": p_norm2,
+        "normality_passed": normality
+    }
+    return result
+
+
+# -
 
 # # getNFD.r
 
@@ -88,9 +183,11 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2):
     B = E2 > P and Q > E1
     C = P > E2 and Q > E1
     D = E2 > P and E1 > Q
+    # Time function
+    N1_simul, N2_simul, count_PGR1, count_PGR2 = time_simul(r1, r2, a11, a12, a21, a22)
     # Call getPCG to calculate PGR1 and PGR2
     PGR1, PGR2 = getPCG(r1, r2, a11, a12, a21, a22, N1, N2)
-    return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D}
+    return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D, "N1_simul": N1_simul, "N2_simul": N2_simul, "count_PGR1": count_PGR1, "count_PGR2": count_PGR2}
 
 
 # -
@@ -139,7 +236,7 @@ def Sim(k, mesh_row):
     return {**metrics, "N1": N1, "N2": N2, "r1": r1, "r2": r2, "a11": a11, "a12": a12, "a21": a21, "a22": a22}
 
 def postprocess_results(results, outfile):
-    column_order = ['r1', 'r2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'FE1', 'S1', 'FE2', 'S2', 'Rank', 'Coexist', 'Asy', 'cor_sos', 'Rare', 'PGR1', 'PGR2', 'A', 'B', 'C', 'D']
+    column_order = ['r1', 'r2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'FE1', 'S1', 'FE2', 'S2', 'Rank', 'Coexist', 'Asy', 'cor_sos', 'Rare', 'PGR1', 'PGR2', 'A', 'B', 'C', 'D', 'N1_simul', 'N2_simul', 'count_PGR1', 'count_PGR2']
     simul = pd.DataFrame(results, columns=column_order)
     simul.to_csv(outfile, index=False)
 
@@ -377,54 +474,6 @@ def plot_phase_plane():
     plt.show()
 
 
-# def plot_frequency_pgr():
-#     # Parameters for each scenario
-#     scenarios = {
-#         "(a) A1: $E_1 > Q$ and $P > E_2$": {'r1': 18, 'r2': 16, 'a11': 0.5, 'a12': 1, 'a21': 1, 'a22': 1},
-#         "(b) A2: $Q > E_1$ and $E_2 > P$": {'r1': 20, 'r2': 15, 'a11': 2, 'a12': 1, 'a21': 1, 'a22': 0.5},
-#         "(c) B: $Q > E_1$ and $P > E_2$":  {'r1': 20, 'r2': 15, 'a11': 3, 'a12': 0.5, 'a21': 1, 'a22': 0.5},
-#         "(d) C: $E_1 > Q$ and $E_2 > P$":  {'r1': 16, 'r2': 18, 'a11': 0.3, 'a12': 1, 'a21': 1, 'a22': 0.5},
-#     }
-#     # Arbitrary values for N1
-#     N1_small = 0.1
-#     N1_large = 100
-#     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-#     axes = axes.flatten()
-#     for i, (title, params) in enumerate(scenarios.items()):
-#         ax = axes[i]
-#         # Unpack parameters
-#         r1 = params['r1']
-#         r2 = params['r2']
-#         a11 = params['a11']
-#         a12 = params['a12']
-#         a21 = params['a21']
-#         a22 = params['a22']
-#         # Adjusting frequency based on parameter set
-#         freqN1_small = N1_small * (r1 / (r1 + r2)) * (a11 / (a11 + a12))
-#         freqN2_small = 1 - freqN1_small
-#         freqN1_large = N1_large * (r1 / (r1 + r2)) * (a21 / (a21 + a22))
-#         freqN2_large = 1 - freqN1_large
-#         # Linearly spaced values for plotting
-#         x_values = np.linspace(0, 1, 100)
-#         # Example curves for N1 and N2 based on the parameter sets
-#         y_values_N1 = freqN1_small + (freqN1_large - freqN1_small) * x_values
-#         y_values_N2 = freqN2_small + (freqN2_large - freqN2_small) * x_values
-#         # Plot N1 and N2 curves
-#         ax.plot(x_values, y_values_N1, 'b-', label='N1', markersize=8)
-#         ax.plot(x_values, y_values_N2, 'r-', label='N2', markersize=8)
-#         # Set x-axis as frequency and y-axis as log(growth rate)
-#         ax.set_xlabel('Frequency', fontsize=18)
-#         ax.set_ylabel('log(PGR)', fontsize=18)
-#         # Set title
-#         ax.set_title(title, fontsize=18, loc='left')
-#         ax.tick_params(axis='both', which='major', labelsize=18)
-#         # Add legend
-#         ax.legend(fontsize=14)
-#     # Adjust layout and save the figure
-#     plt.tight_layout()
-#     plt.savefig('img/frequency_pgr.png')
-#     plt.show()
-
 # +
 def main():
     # Create img and csv directories if they don't exist
@@ -457,6 +506,13 @@ def main():
     print("\n\n--------------------------------------------------------\n\n")
     # Call the function to count and print the occurrences of A, B, C, and D
     count_abcd(filtered_data)
+    print("\n\n--------------------------------------------------------\n\n")
+    # Perform the t-test on count_PGR1 and count_PGR2
+    filtered_C_data = filtered_data[filtered_data['C'] == True]
+    compare_counts_test(filtered_C_data, use_pcg=False, print_on=True)
+    print("\n\n--------------------------------------------------------\n\n")
+    # Perform the t-test on PGR1 and PGR2 from the getPCG
+    compare_counts_test(filtered_C_data, use_pcg=True, print_on=True)
 
 if __name__ == "__main__":
     main()
