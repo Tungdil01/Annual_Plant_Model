@@ -79,59 +79,64 @@ def time_simul(r1, r2, a11, a12, a21, a22):
             break
     return y1[-1], y2[-1], count_PGR1, count_PGR2
 
-def compare_counts_test(filtered_data, use_pcg=False, print_on=False):
-    if use_pcg:
-        # Calculate PGR1 and PGR2 using getPCG for each row
+def compare_counts_test(filtered_data, run_time=False, print_on=False):
+    if run_time:
+        print('\nCounts how many times PGR1>PGR2 and PGR2>PGR1 in the time simulation and compare them:\n')
+        count_PGR1 = filtered_data['count_PGR1'].tolist()
+        count_PGR2 = filtered_data['count_PGR2'].tolist()
+    else:
+        print('\nEmploy the getPCG function to get PGR1 and PGR2 and compare them:\n')
         count_PGR1, count_PGR2 = [], []
         for _, row in filtered_data.iterrows():
             PGR1, PGR2 = getPCG(row['r1'], row['r2'], row['a11'], row['a12'], row['a21'], row['a22'], row['N1'], row['N2'])
             count_PGR1.append(PGR1)
             count_PGR2.append(PGR2)
-    else:
-        # Use count_PGR1 and count_PGR2 from the filtered data
-        count_PGR1 = filtered_data['count_PGR1'].tolist()
-        count_PGR2 = filtered_data['count_PGR2'].tolist()
-    # Ensure the inputs are numpy arrays for accurate mean and std calculations
-    count_PGR1 = np.array(count_PGR1)
-    count_PGR2 = np.array(count_PGR2)
+        # Convert lists to pandas Series to handle NaN removal
+        count_PGR1 = pd.Series(count_PGR1)
+        count_PGR2 = pd.Series(count_PGR2)
+        # Remove NaN entries
+        valid_data = pd.DataFrame({'PGR1': count_PGR1, 'PGR2': count_PGR2}).dropna()
+        count_PGR1 = valid_data['PGR1'].to_numpy()
+        count_PGR2 = valid_data['PGR2'].to_numpy()
+        if len(count_PGR1) == 0 or len(count_PGR2) == 0:
+            print("No valid data for statistical test.")
+            return None
     # Check for normality using Shapiro-Wilk test
     stat1, p_norm1 = shapiro(count_PGR1)
     stat2, p_norm2 = shapiro(count_PGR2)
     normality = (p_norm1 > 0.05) and (p_norm2 > 0.05)
     if normality:
-        # Perform t-test if data is normally distributed
         t_stat, p_value = ttest_ind(count_PGR1, count_PGR2, equal_var=False)
         test_type = 'T-test'
     else:
-        # Perform Mann-Whitney U test if data is not normally distributed
         t_stat, p_value = mannwhitneyu(count_PGR1, count_PGR2, alternative='two-sided')
         test_type = 'Mann-Whitney U Test'
-    # Calculate mean and standard deviation
     mean1 = np.mean(count_PGR1)
     mean2 = np.mean(count_PGR2)
     std1 = np.std(count_PGR1, ddof=1)
     std2 = np.std(count_PGR2, ddof=1)
-    # Determine which mean is larger
-    larger_mean = "count_PGR1" if mean1 > mean2 else "count_PGR2"
-    # Print simplified results if print_on=False
+    if p_value<0.05:
+        larger_mean = "PGR1" if mean1 > mean2 else "PGR2"
+        diff_statement=f"Larger mean: {larger_mean}."
+    else:
+        larger_mean = None
+        diff_statement="Means are not statistically different."
     if not print_on:
         print(f"{test_type} Results:")
         print(f"T-statistic = {t_stat:.4f}, p-value = {p_value:.4f}")
         print(f"Larger mean: {larger_mean}\n")
     else:
-        # Print detailed statistics if print_on=True
-        print(f"Normality Test (Shapiro-Wilk):\n")
-        print(f"count_PGR1: W-statistic = {stat1:.4f}, p-value = {p_norm1:.4f}")
-        print(f"count_PGR2: W-statistic = {stat2:.4f}, p-value = {p_norm2:.4f}")
+        print(f"Normality Test (Shapiro-Wilk):")
+        print(f"PGR1: W-statistic = {stat1:.4f}, p-value = {p_norm1:.4f}")
+        print(f"PGR2: W-statistic = {stat2:.4f}, p-value = {p_norm2:.4f}")
         print(f"Data is normally distributed: {normality}")
         print(f"\n{test_type} Results:")
         print(f"T-statistic = {t_stat:.4f}, p-value = {p_value:.4f}")
-        print(f"Mean of count_PGR1: {mean1:.6f}")
-        print(f"Mean of count_PGR2: {mean2:.6f}")
-        print(f"Standard deviation of count_PGR1: {std1:.6f}")
-        print(f"Standard deviation of count_PGR2: {std2:.6f}")
-        print(f"Larger mean: {larger_mean}")
-    # Return a detailed report as a dictionary
+        print(f"Mean of PGR1: {mean1:.6f}")
+        print(f"Mean of PGR2: {mean2:.6f}")
+        print(f"Standard deviation of PGR1: {std1:.6f}")
+        print(f"Standard deviation of PGR2: {std2:.6f}")
+#        print(f"Larger mean: {larger_mean}")
     result = {
         "test_type": test_type,
         "t_stat": t_stat,
@@ -141,9 +146,9 @@ def compare_counts_test(filtered_data, use_pcg=False, print_on=False):
         "std_PGR1": std1,
         "std_PGR2": std2,
         "larger_mean": larger_mean,
-        "normality_PGR1": p_norm1,
+        "normality_PGR1": p_norm1, 
         "normality_PGR2": p_norm2,
-        "normality_passed": normality
+        "normality_passed": normality 
     }
     return result
 
@@ -153,14 +158,14 @@ def compare_counts_test(filtered_data, use_pcg=False, print_on=False):
 # # getNFD.r
 
 # +
-def getPCG(r1, r2, a11, a12, a21, a22, N1, N2): # per capita growth rate
-    newN1 = r1 * N1 / (1 + a11 * N1 + a12 * N2)
-    newN2 = r2 * N2 / (1 + a22 * N2 + a21 * N1)
-    PGR1 = np.log(newN1) - np.log(N1)
-    PGR2 = np.log(newN2) - np.log(N2)
+def getPCG(r1, r2, a11, a12, a21, a22, N1, N2): # Per capita growth rate calculation
+    newN1 = r1 * N1 / (1 + a11 * N1 + a12 * N2) if N1 > 0 else np.nan
+    newN2 = r2 * N2 / (1 + a22 * N2 + a21 * N1) if N2 > 0 else np.nan
+    PGR1 = np.log(newN1) - np.log(N1) if N1 > 0 else np.nan
+    PGR2 = np.log(newN2) - np.log(N2) if N2 > 0 else np.nan
     return PGR1, PGR2
 
-def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2):
+def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, run_time=False):
     Coexist = 0 if N1 < 1 else 1
     S1 = r2 / (1 + (a12 / a22) * (r2 - 1))
     S2 = r1 / (1 + (a21 / a11) * (r1 - 1))
@@ -183,11 +188,14 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2):
     B = E2 > P and Q > E1
     C = P > E2 and Q > E1
     D = E2 > P and E1 > Q
-    # Time function
-    N1_simul, N2_simul, count_PGR1, count_PGR2 = time_simul(r1, r2, a11, a12, a21, a22)
     # Call getPCG to calculate PGR1 and PGR2
     PGR1, PGR2 = getPCG(r1, r2, a11, a12, a21, a22, N1, N2)
-    return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D, "N1_simul": N1_simul, "N2_simul": N2_simul, "count_PGR1": count_PGR1, "count_PGR2": count_PGR2}
+    if run_time:
+        # Time function
+        N1_simul, N2_simul, count_PGR1, count_PGR2 = time_simul(r1, r2, a11, a12, a21, a22)
+        return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D, "N1_simul": N1_simul, "N2_simul": N2_simul, "count_PGR1": count_PGR1, "count_PGR2": count_PGR2}
+    else:
+        return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D}
 
 
 # -
@@ -229,14 +237,18 @@ def preprocess_data(pars):
     mesh = np.array(np.meshgrid(r1_v, r2_v, a11_v, a12_v, a21_v, a22_v)).T.reshape(-1, 6)
     return mesh
 
-def Sim(k, mesh_row):
+def Sim(k, mesh_row, run_time=False):
     r1, r2, a11, a12, a21, a22 = mesh_row
     N1, N2 = analyN(r1, r2, a11, a12, a21, a22)
-    metrics = calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2)
+    metrics = calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, run_time)
     return {**metrics, "N1": N1, "N2": N2, "r1": r1, "r2": r2, "a11": a11, "a12": a12, "a21": a21, "a22": a22}
 
-def postprocess_results(results, outfile):
-    column_order = ['r1', 'r2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'FE1', 'S1', 'FE2', 'S2', 'Rank', 'Coexist', 'Asy', 'cor_sos', 'Rare', 'PGR1', 'PGR2', 'A', 'B', 'C', 'D', 'N1_simul', 'N2_simul', 'count_PGR1', 'count_PGR2']
+def postprocess_results(results, outfile, run_time=False):
+    if run_time:
+        column_order = ['r1', 'r2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'FE1', 'S1', 'FE2', 'S2', 'Rank', 'Coexist', 'Asy', 'cor_sos', 'Rare', 'PGR1', 'PGR2', 'A', 'B', 'C', 'D', 'N1_simul', 'N2_simul', 'count_PGR1', 'count_PGR2']
+        
+    else:
+        column_order = ['r1', 'r2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'FE1', 'S1', 'FE2', 'S2', 'Rank', 'Coexist', 'Asy', 'cor_sos', 'Rare', 'PGR1', 'PGR2', 'A', 'B', 'C', 'D']
     simul = pd.DataFrame(results, columns=column_order)
     simul.to_csv(outfile, index=False)
 
@@ -482,13 +494,14 @@ def main():
     if not os.path.exists('csv'):
         os.makedirs('csv')
     warnings.filterwarnings("ignore")
+    run_time = True # the time_simul function is slow. Set run_time = False if you want to only use the PGR
     # Specify paths for the output files
     initial_output_file = "csv/annplant_2spp_det_rare.csv"
     filtered_output_file = "csv/annplant_2spp_det_rare_filtered.csv"
     # Generate the parameter mesh
     mesh = preprocess_data('table1') # options: r_code, table1, paper, or minimal
     # Run the simulation for each parameter set in the mesh
-    results = [Sim(k, row) for k, row in enumerate(mesh)]
+    results = [Sim(k, row, run_time) for k, row in enumerate(mesh)]
     # Convert the list of dictionaries into a DataFrame and save to CSV
     results_df = pd.DataFrame(results)
     results_df.to_csv(initial_output_file, index=False)
@@ -507,12 +520,13 @@ def main():
     # Call the function to count and print the occurrences of A, B, C, and D
     count_abcd(filtered_data)
     print("\n\n--------------------------------------------------------\n\n")
-    # Perform the t-test on count_PGR1 and count_PGR2
     filtered_C_data = filtered_data[filtered_data['C'] == True]
-    compare_counts_test(filtered_C_data, use_pcg=False, print_on=True)
+    # Perform the t-test on count_PGR1 and count_PGR2
+    if run_time==True:
+        compare_counts_test(filtered_C_data, run_time=True, print_on=True)
     print("\n\n--------------------------------------------------------\n\n")
     # Perform the t-test on PGR1 and PGR2 from the getPCG
-    compare_counts_test(filtered_C_data, use_pcg=True, print_on=True)
+    compare_counts_test(filtered_C_data, run_time=False, print_on=True)
 
 if __name__ == "__main__":
     main()
