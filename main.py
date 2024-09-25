@@ -20,6 +20,7 @@
 # #### their original code: https://github.com/gmyenni/RareStabilizationSimulation
 
 import os
+import time
 import warnings
 import pandas as pd
 import numpy as np
@@ -28,8 +29,7 @@ import statsmodels.api as sm
 from statsmodels.stats.proportion import proportion_confint
 from scipy import stats
 from scipy.stats import ttest_ind, mannwhitneyu, shapiro
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-from sklearn.preprocessing import StandardScaler
+from tqdm import tqdm
 
 
 # # analyN_function.r
@@ -165,8 +165,7 @@ def getPCG(r1, r2, a11, a12, a21, a22, N1, N2): # Per capita growth rate calcula
     PGR2 = np.log(newN2) - np.log(N2) if N2 > 0 else np.nan
     return PGR1, PGR2
 
-def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, run_time=False):
-    Coexist = 0 if N1 < 1 else 1
+def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True, run_time=False):
     S1 = r2 / (1 + (a12 / a22) * (r2 - 1))
     S2 = r1 / (1 + (a21 / a11) * (r1 - 1))
     FE1, FE2 = r1 / r2, r2 / r1  # Fitness equivalence
@@ -193,8 +192,16 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, run_time=False):
     if run_time:
         # Time function
         N1_simul, N2_simul, count_PGR1, count_PGR2 = time_simul(r1, r2, a11, a12, a21, a22)
+        if extinc_crit_1:
+            Coexist = 0 if N1_simul < 1 or N2_simul < 1 else 1
+        else:
+            Coexist = 0 if N1_simul < 1.0e-6 or N2_simul < 1.0e-6 else 1
         return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D, "N1_simul": N1_simul, "N2_simul": N2_simul, "count_PGR1": count_PGR1, "count_PGR2": count_PGR2}
     else:
+        if extinc_crit_1:
+            Coexist = 0 if N1 < 1 or N2 < 1 else 1
+        else:
+            Coexist = 0 if N1 < 1.0e-6 or N2 < 1.0e-6 else 1
         return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D}
 
 
@@ -237,10 +244,12 @@ def preprocess_data(pars):
     mesh = np.array(np.meshgrid(r1_v, r2_v, a11_v, a12_v, a21_v, a22_v)).T.reshape(-1, 6)
     return mesh
 
-def Sim(k, mesh_row, run_time=False):
+def Sim(k, mesh_row, extinc_crit_1=True, run_time=False):
+    start_time = time.time()
     r1, r2, a11, a12, a21, a22 = mesh_row
     N1, N2 = analyN(r1, r2, a11, a12, a21, a22)
-    metrics = calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, run_time)
+    metrics = calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1, run_time)
+    execution_time = time.time() - start_time
     return {**metrics, "N1": N1, "N2": N2, "r1": r1, "r2": r2, "a11": a11, "a12": a12, "a21": a21, "a22": a22}
 
 def postprocess_results(results, outfile, run_time=False):
@@ -395,12 +404,12 @@ def count_abcd(filtered_data):
     count_B_total = count_B_0 + count_B_1
     count_C_total = count_C_0 + count_C_1
     count_D_total = count_D_0 + count_D_1
-    total_count = count_A_total + count_B_total + count_C_total + count_D_total
+    total_count = len(filtered_data)
     # Calculate proportions
-    prop_A = count_A_total / total_count if total_count != 0 else 0
-    prop_B = count_B_total / total_count if total_count != 0 else 0
-    prop_C = count_C_total / total_count if total_count != 0 else 0
-    prop_D = count_D_total / total_count if total_count != 0 else 0
+    prop_A = count_A_total / total_count# if total_count != 0 else 0
+    prop_B = count_B_total / total_count# if total_count != 0 else 0
+    prop_C = count_C_total / total_count# if total_count != 0 else 0
+    prop_D = count_D_total / total_count# if total_count != 0 else 0
     # Print results
     print(f"A\nCoexist==0: {count_A_0}\nCoexist==1: {count_A_1}\nTotal: {count_A_total}\nProportion: {prop_A:.4f}")
     print(f"\nB\nCoexist==0: {count_B_0}\nCoexist==1: {count_B_1}\nTotal: {count_B_total}\nProportion: {prop_B:.4f}")
@@ -488,45 +497,44 @@ def plot_phase_plane():
 
 # +
 def main():
+    # User choices:
+    run_time = True # True: run the time_simul function (slow). False: use only the PGR function
+    extinc_crit_1 = True # True: extinction criterion N<1. False: N<1.0e-6
+    filter_option = 'on' # on: SoS>=1 only, inverted: SoS<1 only, off: all SoS
+    truncate = False # True: truncate the values. False: keep them unaltered
     # Create img and csv directories if they don't exist
     if not os.path.exists('img'):
         os.makedirs('img')
     if not os.path.exists('csv'):
         os.makedirs('csv')
     warnings.filterwarnings("ignore")
-    run_time = True # the time_simul function is slow. Set run_time = False if you want to only use the PGR
     # Specify paths for the output files
     initial_output_file = "csv/annplant_2spp_det_rare.csv"
     filtered_output_file = "csv/annplant_2spp_det_rare_filtered.csv"
     # Generate the parameter mesh
     mesh = preprocess_data('table1') # options: r_code, table1, paper, or minimal
     # Run the simulation for each parameter set in the mesh
-    results = [Sim(k, row, run_time) for k, row in enumerate(mesh)]
+    results = [Sim(k, row, extinc_crit_1, run_time) for k, row in tqdm(enumerate(mesh), total=len(mesh))]
     # Convert the list of dictionaries into a DataFrame and save to CSV
     results_df = pd.DataFrame(results)
     results_df.to_csv(initial_output_file, index=False)
     # Apply filters and generate the filtered data CSV
-    cor_figure('on', truncate=False) # options: on, off, or inverted
+    cor_figure(filter_option, truncate) 
     # Load the filtered data from CSV into a DataFrame
     filtered_data = pd.read_csv(filtered_output_file)
     # Analysis for all scenarios using the filtered dataset
     print("Analysis for All Scenarios:")
     models_results = analyze_coexistence_effect(filtered_data, print_on=False)  # Pass DataFrame directly
     print("\n\n--------------------------------------------------------\n\n")
-#    # Call the function to generate and save the plots
+    # Call the function to generate and save the plots
     plot_phase_plane()
-#    plot_frequency_pgr()
     print("\n\n--------------------------------------------------------\n\n")
     # Call the function to count and print the occurrences of A, B, C, and D
     count_abcd(filtered_data)
     print("\n\n--------------------------------------------------------\n\n")
+    # Perform the t-test on PGR1 and PGR2
     filtered_C_data = filtered_data[filtered_data['C'] == True]
-    # Perform the t-test on count_PGR1 and count_PGR2
-    if run_time==True:
-        compare_counts_test(filtered_C_data, run_time=True, print_on=True)
-    print("\n\n--------------------------------------------------------\n\n")
-    # Perform the t-test on PGR1 and PGR2 from the getPCG
-    compare_counts_test(filtered_C_data, run_time=False, print_on=True)
+    compare_counts_test(filtered_C_data, run_time, print_on=True)
 
 if __name__ == "__main__":
     main()
