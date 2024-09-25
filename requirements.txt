@@ -1,16 +1,17 @@
 # Requirements to run the code
-numpy==2.1.0
+numpy==2.0.2
 scipy==1.14.1
 pandas==2.2.2
 statsmodels==0.14.2
 tqdm==4.66.5
 #scikit-learn>=1.5.1
+numba==0.60.0
 
 # Jupyter Notebooks
-jupyter
+jupyter==1.1.1
 notebook==7.2.2
 jupytext==1.16.4
-jupyterthemes
+jupyterthemes==0.20.0
 ipython==8.26.0
 
 # Plotting

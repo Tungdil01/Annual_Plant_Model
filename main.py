@@ -30,6 +30,7 @@ from statsmodels.stats.proportion import proportion_confint
 from scipy import stats
 from scipy.stats import ttest_ind, mannwhitneyu, shapiro
 from tqdm import tqdm
+from numba import jit
 
 
 # # analyN_function.r
@@ -57,6 +58,7 @@ def analyN(r1, r2, a11, a12, a21, a22): # equilibrium populations
 
 
 # +
+@jit
 def time_simul(r1, r2, a11, a12, a21, a22):
     y01, y02 =5, 5
     y1 = np.array([y01], dtype=np.float64)
@@ -72,7 +74,7 @@ def time_simul(r1, r2, a11, a12, a21, a22):
             count_PGR2 += 1
         y1 = np.append(y1, y1[i] * per_cap1)
         y2 = np.append(y2, y2[i] * per_cap2)        
-        if np.abs(y1[-1] - y1[-2]) < 1.0e-5 and np.abs(y2[-1] - y2[-2]) < 1.0e-5:
+        if np.abs(y1[-1] - y1[-2]) < 1.0e-6 and np.abs(y2[-1] - y2[-2]) < 1.0e-6:
             stopRun = 1
         i += 1
         if i > 10000:
@@ -136,7 +138,6 @@ def compare_counts_test(filtered_data, run_time=False, print_on=False):
         print(f"Mean of PGR2: {mean2:.6f}")
         print(f"Standard deviation of PGR1: {std1:.6f}")
         print(f"Standard deviation of PGR2: {std2:.6f}")
-#        print(f"Larger mean: {larger_mean}")
     result = {
         "test_type": test_type,
         "t_stat": t_stat,
@@ -158,6 +159,7 @@ def compare_counts_test(filtered_data, run_time=False, print_on=False):
 # # getNFD.r
 
 # +
+@jit
 def getPCG(r1, r2, a11, a12, a21, a22, N1, N2): # Per capita growth rate calculation
     newN1 = r1 * N1 / (1 + a11 * N1 + a12 * N2) if N1 > 0 else np.nan
     newN2 = r2 * N2 / (1 + a22 * N2 + a21 * N1) if N2 > 0 else np.nan
@@ -165,6 +167,7 @@ def getPCG(r1, r2, a11, a12, a21, a22, N1, N2): # Per capita growth rate calcula
     PGR2 = np.log(newN2) - np.log(N2) if N2 > 0 else np.nan
     return PGR1, PGR2
 
+@jit
 def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True, run_time=False):
     S1 = r2 / (1 + (a12 / a22) * (r2 - 1))
     S2 = r1 / (1 + (a21 / a11) * (r1 - 1))
@@ -195,13 +198,13 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True, ru
         if extinc_crit_1:
             Coexist = 0 if N1_simul < 1 or N2_simul < 1 else 1
         else:
-            Coexist = 0 if N1_simul < 1.0e-6 or N2_simul < 1.0e-6 else 1
+            Coexist = 0 if N1_simul < 5.0e-2 or N2_simul < 5.0e-2 else 1
         return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D, "N1_simul": N1_simul, "N2_simul": N2_simul, "count_PGR1": count_PGR1, "count_PGR2": count_PGR2}
     else:
         if extinc_crit_1:
             Coexist = 0 if N1 < 1 or N2 < 1 else 1
         else:
-            Coexist = 0 if N1 < 1.0e-6 or N2 < 1.0e-6 else 1
+            Coexist = 0 if N1 < 5.0e-2 or N2 < 5.0e-2 else 1
         return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D}
 
 
@@ -255,7 +258,6 @@ def Sim(k, mesh_row, extinc_crit_1=True, run_time=False):
 def postprocess_results(results, outfile, run_time=False):
     if run_time:
         column_order = ['r1', 'r2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'FE1', 'S1', 'FE2', 'S2', 'Rank', 'Coexist', 'Asy', 'cor_sos', 'Rare', 'PGR1', 'PGR2', 'A', 'B', 'C', 'D', 'N1_simul', 'N2_simul', 'count_PGR1', 'count_PGR2']
-        
     else:
         column_order = ['r1', 'r2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'FE1', 'S1', 'FE2', 'S2', 'Rank', 'Coexist', 'Asy', 'cor_sos', 'Rare', 'PGR1', 'PGR2', 'A', 'B', 'C', 'D']
     simul = pd.DataFrame(results, columns=column_order)
@@ -379,26 +381,54 @@ def count_abcd(filtered_data):
         E2 = (row['r2'] - 1) / row['a22']
         Q = (row['r2'] - 1) / row['a21']
         E1 = (row['r1'] - 1) / row['a11']
-        if P > E2 and E1 > Q:
-            if row['Coexist'] == 0:
-                count_A_0 += 1
-            else:
-                count_A_1 += 1
-        elif E2 > P and Q > E1:
-            if row['Coexist'] == 0:
-                count_B_0 += 1
-            else:
-                count_B_1 += 1
-        elif P > E2 and Q > E1:
+        if P != E2 and Q != E1:
+            if P > E2 and E1 > Q:  # Case A
+                if row['Coexist'] == 0:
+                    count_A_0 += 1
+                else:
+                    count_A_1 += 1
+            elif E2 > P and Q > E1:  # Case B
+                if row['Coexist'] == 0:
+                    count_B_0 += 1
+                else:
+                    count_B_1 += 1
+            elif P > E2 and Q > E1:  # Case C
+                if row['Coexist'] == 0:
+                    count_C_0 += 1
+                else:
+                    count_C_1 += 1
+            elif E2 > P and E1 > Q:  # Case D
+                if row['Coexist'] == 0:
+                    count_D_0 += 1
+                else:
+                    count_D_1 += 1
+        elif P == E2 and Q == E1:
             if row['Coexist'] == 0:
                 count_C_0 += 1
             else:
                 count_C_1 += 1
-        elif E2 > P and E1 > Q:
-            if row['Coexist'] == 0:
-                count_D_0 += 1
-            else:
-                count_D_1 += 1
+        elif P == E2:  # If P equals E2, only look at the relationship between Q and E1
+            if Q > E1:
+                if row['Coexist'] == 0:
+                    count_B_0 += 1
+                else:
+                    count_B_1 += 1
+            elif E1 > Q:
+                if row['Coexist'] == 0:
+                    count_A_0 += 1
+                else:
+                    count_A_1 += 1
+        elif Q == E1:  # If Q equals E1, only look at the relationship between P and E2
+            if P > E2:
+                if row['Coexist'] == 0:
+                    count_A_0 += 1
+                else:
+                    count_A_1 += 1
+            elif E2 > P:
+                if row['Coexist'] == 0:
+                    count_B_0 += 1
+                else:
+                    count_B_1 += 1
     # Calculate totals for A, B, C, D
     count_A_total = count_A_0 + count_A_1
     count_B_total = count_B_0 + count_B_1
@@ -406,10 +436,10 @@ def count_abcd(filtered_data):
     count_D_total = count_D_0 + count_D_1
     total_count = len(filtered_data)
     # Calculate proportions
-    prop_A = count_A_total / total_count# if total_count != 0 else 0
-    prop_B = count_B_total / total_count# if total_count != 0 else 0
-    prop_C = count_C_total / total_count# if total_count != 0 else 0
-    prop_D = count_D_total / total_count# if total_count != 0 else 0
+    prop_A = count_A_total / total_count if total_count != 0 else 0
+    prop_B = count_B_total / total_count if total_count != 0 else 0
+    prop_C = count_C_total / total_count if total_count != 0 else 0
+    prop_D = count_D_total / total_count if total_count != 0 else 0
     # Print results
     print(f"A\nCoexist==0: {count_A_0}\nCoexist==1: {count_A_1}\nTotal: {count_A_total}\nProportion: {prop_A:.4f}")
     print(f"\nB\nCoexist==0: {count_B_0}\nCoexist==1: {count_B_1}\nTotal: {count_B_total}\nProportion: {prop_B:.4f}")
@@ -498,10 +528,10 @@ def plot_phase_plane():
 # +
 def main():
     # User choices:
-    run_time = True # True: run the time_simul function (slow). False: use only the PGR function
-    extinc_crit_1 = True # True: extinction criterion N<1. False: N<1.0e-6
-    filter_option = 'on' # on: SoS>=1 only, inverted: SoS<1 only, off: all SoS
-    truncate = False # True: truncate the values. False: keep them unaltered
+    run_time = True # True: run the time_simul function. False: use only the PGR function (Yenni et al.)
+    extinc_crit_1 = True # True: extinction criterion N<1 (Yenni et al.). False: N<5.0e-2
+    filter_option = 'on' # on: SoS>=1 only (Yenni et al.), inverted: SoS<1 only, off: all SoS
+    truncate = False # True: truncate the values (Yenni et al.). False: keep them unaltered
     # Create img and csv directories if they don't exist
     if not os.path.exists('img'):
         os.makedirs('img')
