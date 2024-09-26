@@ -14,8 +14,10 @@
 # ---
 
 # ### The code aims to modify the analysis of Yenni et al. (2012):
-# #### - removes the filter S1 >= 1 & S2 >= 1
+# #### - has the option to keep the filter S1 >= 1 & S2 >= 1 or remove it
 # #### - does not truncate the values
+# #### - counts the number of coexistence cases
+# #### - includes Cushing et al. (2004) analytical results
 #
 # #### their original code: https://github.com/gmyenni/RareStabilizationSimulation
 
@@ -57,52 +59,23 @@ def analyN(r1, r2, a11, a12, a21, a22): # equilibrium populations
     return N1, N2
 
 
-# +
-@jit
-def time_simul(r1, r2, a11, a12, a21, a22):
-    y01, y02 =5, 5
-    y1 = np.array([y01], dtype=np.float64)
-    y2 = np.array([y02], dtype=np.float64)
-    i, stopRun = 0, 0
-    count_PGR1, count_PGR2 = 0, 0
-    while stopRun == 0:  # stops the simulation when the dynamics converges
-        per_cap1 = r1 / (1 + a11 * y1[i] + a12 * y2[i])
-        per_cap2 = r2 / (1 + a22 * y2[i] + a21 * y1[i])
-        if per_cap1 > per_cap2:
-            count_PGR1 += 1
-        elif per_cap2 > per_cap1:
-            count_PGR2 += 1
-        y1 = np.append(y1, y1[i] * per_cap1)
-        y2 = np.append(y2, y2[i] * per_cap2)        
-        if np.abs(y1[-1] - y1[-2]) < 1.0e-6 and np.abs(y2[-1] - y2[-2]) < 1.0e-6:
-            stopRun = 1
-        i += 1
-        if i > 10000:
-            break
-    return y1[-1], y2[-1], count_PGR1, count_PGR2
-
-def compare_counts_test(filtered_data, run_time=False, print_on=False):
-    if run_time:
-        print('\nCounts how many times PGR1>PGR2 and PGR2>PGR1 in the time simulation and compare them:\n')
-        count_PGR1 = filtered_data['count_PGR1'].tolist()
-        count_PGR2 = filtered_data['count_PGR2'].tolist()
-    else:
-        print('\nEmploy the getPCG function to get PGR1 and PGR2 and compare them:\n')
-        count_PGR1, count_PGR2 = [], []
-        for _, row in filtered_data.iterrows():
-            PGR1, PGR2 = getPCG(row['r1'], row['r2'], row['a11'], row['a12'], row['a21'], row['a22'], row['N1'], row['N2'])
-            count_PGR1.append(PGR1)
-            count_PGR2.append(PGR2)
-        # Convert lists to pandas Series to handle NaN removal
-        count_PGR1 = pd.Series(count_PGR1)
-        count_PGR2 = pd.Series(count_PGR2)
-        # Remove NaN entries
-        valid_data = pd.DataFrame({'PGR1': count_PGR1, 'PGR2': count_PGR2}).dropna()
-        count_PGR1 = valid_data['PGR1'].to_numpy()
-        count_PGR2 = valid_data['PGR2'].to_numpy()
-        if len(count_PGR1) == 0 or len(count_PGR2) == 0:
-            print("No valid data for statistical test.")
-            return None
+def compare_counts_test(filtered_data, print_on=False):
+    print('\nEmploy the getPCG function to get PGR1 and PGR2 and compare them:\n')
+    count_PGR1, count_PGR2 = [], []
+    for _, row in filtered_data.iterrows():
+        PGR1, PGR2 = getPCG(row['r1'], row['r2'], row['a11'], row['a12'], row['a21'], row['a22'], row['N1'], row['N2'])
+        count_PGR1.append(PGR1)
+        count_PGR2.append(PGR2)
+    # Convert lists to pandas Series to handle NaN removal
+    count_PGR1 = pd.Series(count_PGR1)
+    count_PGR2 = pd.Series(count_PGR2)
+    # Remove NaN entries
+    valid_data = pd.DataFrame({'PGR1': count_PGR1, 'PGR2': count_PGR2}).dropna()
+    count_PGR1 = valid_data['PGR1'].to_numpy()
+    count_PGR2 = valid_data['PGR2'].to_numpy()
+    if len(count_PGR1) == 0 or len(count_PGR2) == 0:
+        print("No valid data for statistical test.")
+        return None
     # Check for normality using Shapiro-Wilk test
     stat1, p_norm1 = shapiro(count_PGR1)
     stat2, p_norm2 = shapiro(count_PGR2)
@@ -154,8 +127,6 @@ def compare_counts_test(filtered_data, run_time=False, print_on=False):
     return result
 
 
-# -
-
 # # getNFD.r
 
 # +
@@ -168,7 +139,7 @@ def getPCG(r1, r2, a11, a12, a21, a22, N1, N2): # Per capita growth rate calcula
     return PGR1, PGR2
 
 @jit
-def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True, run_time=False):
+def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True):
     S1 = r2 / (1 + (a12 / a22) * (r2 - 1))
     S2 = r1 / (1 + (a21 / a11) * (r1 - 1))
     FE1, FE2 = r1 / r2, r2 / r1  # Fitness equivalence
@@ -192,20 +163,11 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True, ru
     D = E2 > P and E1 > Q
     # Call getPCG to calculate PGR1 and PGR2
     PGR1, PGR2 = getPCG(r1, r2, a11, a12, a21, a22, N1, N2)
-    if run_time:
-        # Time function
-        N1_simul, N2_simul, count_PGR1, count_PGR2 = time_simul(r1, r2, a11, a12, a21, a22)
-        if extinc_crit_1:
-            Coexist = 0 if N1_simul < 1 or N2_simul < 1 else 1
-        else:
-            Coexist = 0 if N1_simul < 5.0e-2 or N2_simul < 5.0e-2 else 1
-        return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D, "N1_simul": N1_simul, "N2_simul": N2_simul, "count_PGR1": count_PGR1, "count_PGR2": count_PGR2}
+    if extinc_crit_1:
+        Coexist = 0 if N1 < 1 or N2 < 1 else 1
     else:
-        if extinc_crit_1:
-            Coexist = 0 if N1 < 1 or N2 < 1 else 1
-        else:
-            Coexist = 0 if N1 < 5.0e-2 or N2 < 5.0e-2 else 1
-        return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D}
+        Coexist = 0 if N1 < 5.0e-2 or N2 < 5.0e-2 else 1
+    return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D}
 
 
 # -
@@ -247,19 +209,16 @@ def preprocess_data(pars):
     mesh = np.array(np.meshgrid(r1_v, r2_v, a11_v, a12_v, a21_v, a22_v)).T.reshape(-1, 6)
     return mesh
 
-def Sim(k, mesh_row, extinc_crit_1=True, run_time=False):
+def Sim(k, mesh_row, extinc_crit_1=True):
     start_time = time.time()
     r1, r2, a11, a12, a21, a22 = mesh_row
     N1, N2 = analyN(r1, r2, a11, a12, a21, a22)
-    metrics = calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1, run_time)
+    metrics = calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1)
     execution_time = time.time() - start_time
     return {**metrics, "N1": N1, "N2": N2, "r1": r1, "r2": r2, "a11": a11, "a12": a12, "a21": a21, "a22": a22}
 
-def postprocess_results(results, outfile, run_time=False):
-    if run_time:
-        column_order = ['r1', 'r2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'FE1', 'S1', 'FE2', 'S2', 'Rank', 'Coexist', 'Asy', 'cor_sos', 'Rare', 'PGR1', 'PGR2', 'A', 'B', 'C', 'D', 'N1_simul', 'N2_simul', 'count_PGR1', 'count_PGR2']
-    else:
-        column_order = ['r1', 'r2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'FE1', 'S1', 'FE2', 'S2', 'Rank', 'Coexist', 'Asy', 'cor_sos', 'Rare', 'PGR1', 'PGR2', 'A', 'B', 'C', 'D']
+def postprocess_results(results, outfile):
+    column_order = ['r1', 'r2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'FE1', 'S1', 'FE2', 'S2', 'Rank', 'Coexist', 'Asy', 'cor_sos', 'Rare', 'PGR1', 'PGR2', 'A', 'B', 'C', 'D']
     simul = pd.DataFrame(results, columns=column_order)
     simul.to_csv(outfile, index=False)
 
@@ -528,8 +487,7 @@ def plot_phase_plane():
 # +
 def main():
     # User choices:
-    run_time = True # True: run the time_simul function. False: use only the PGR function (Yenni et al.)
-    extinc_crit_1 = True # True: extinction criterion N<1 (Yenni et al.). False: N<5.0e-2
+    extinc_crit_1 = False # True: extinction criterion N<1 (Yenni et al.). False: N<5.0e-2
     filter_option = 'on' # on: SoS>=1 only (Yenni et al.), inverted: SoS<1 only, off: all SoS
     truncate = False # True: truncate the values (Yenni et al.). False: keep them unaltered
     # Create img and csv directories if they don't exist
@@ -544,7 +502,7 @@ def main():
     # Generate the parameter mesh
     mesh = preprocess_data('table1') # options: r_code, table1, paper, or minimal
     # Run the simulation for each parameter set in the mesh
-    results = [Sim(k, row, extinc_crit_1, run_time) for k, row in tqdm(enumerate(mesh), total=len(mesh))]
+    results = [Sim(k, row, extinc_crit_1) for k, row in tqdm(enumerate(mesh), total=len(mesh))]
     # Convert the list of dictionaries into a DataFrame and save to CSV
     results_df = pd.DataFrame(results)
     results_df.to_csv(initial_output_file, index=False)
@@ -564,7 +522,7 @@ def main():
     print("\n\n--------------------------------------------------------\n\n")
     # Perform the t-test on PGR1 and PGR2
     filtered_C_data = filtered_data[filtered_data['C'] == True]
-    compare_counts_test(filtered_C_data, run_time, print_on=True)
+    compare_counts_test(filtered_C_data, print_on=True)
 
 if __name__ == "__main__":
     main()
