@@ -6,125 +6,112 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.16.4
+#       jupytext_version: 1.16.7
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
 
-# ### The code aims to modify the analysis of Yenni et al. (2012):
+# ### The code is a modification of the Yenni et al. (2012) analysis:
 # #### - has the option to keep the filter S1 >= 1 & S2 >= 1 or remove it
 # #### - does not truncate the values
-# #### - counts the number of coexistence cases
+# #### - considers extinction N<1e-6 rather than N<1
 # #### - includes Cushing et al. (2004) analytical results
 #
 # #### their original code: https://github.com/gmyenni/RareStabilizationSimulation
 
 import os
+import gc
 import time
 import warnings
+import shap
 import pandas as pd
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import seaborn as sns
 import statsmodels.api as sm
 from statsmodels.stats.proportion import proportion_confint
 from scipy import stats
-from scipy.stats import ttest_ind, mannwhitneyu, shapiro
 from tqdm import tqdm
 from numba import jit
+from itertools import combinations
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.inspection import permutation_importance
 
 
 # # analyN_function.r
 
-def analyN(r1, r2, a11, a12, a21, a22): # equilibrium populations
-    N1 = (r1 - 1 - (a12 / a22) * (r2 - 1)) / (a11 - a21 * a12 / a22)
-    N2 = (r2 - 1 - (a21 / a11) * (r1 - 1)) / (a22 - a21 * a12 / a11)
-    if np.isinf(N1) or np.isinf(N2) or np.isnan(N1) or np.isnan(N2):
-        initialNsp1 = 0
-        initialNsp2 = 0
-        N = np.zeros((100, 2))
-        N[0, :] = [initialNsp1, initialNsp2]   
-        for i in range(1, 100):
-            N[i, 0] = max((r1 - 1 - a12 * N[i-1, 1]) / a11, 0)
-            N[i, 1] = max((r2 - 1 - a21 * N[i-1, 0]) / a22, 0)
-        N1 = np.mean(N[:, 0])
-        N2 = np.mean(N[:, 1])
-    if N1 < 0 and N2 >= 0:
-        N1 = 0
-        N2 = (r2 - 1) / a22
-    elif N2 < 0 and N1 >= 0:
-        N2 = 0
-        N1 = (r1 - 1) / a11
-    return N1, N2
+def difference_equation(r1, r2, a11, a12, a21, a22, solver='numeric'):
+    if solver == 'analyN': # Analytical approximation for equilibrium populations
+        denominator1 = a11 - (a21 * a12) / a22
+        denominator2 = a22 - (a21 * a12) / a11
+        N1 = (r1 - 1 - (a12 / a22) * (r2 - 1)) / denominator1 if denominator1 != 0 else np.nan
+        N2 = (r2 - 1 - (a21 / a11) * (r1 - 1)) / denominator2 if denominator2 != 0 else np.nan
+        if np.isinf(N1) or np.isinf(N2) or np.isnan(N1) or np.isnan(N2):
+            initialNsp1 = 0
+            initialNsp2 = 0
+            N = np.zeros((100, 2))
+            N[0, :] = [initialNsp1, initialNsp2]   
+            for i in range(1, 100):
+                N[i, 0] = max((r1 - 1 - a12 * N[i-1, 1]) / a11, 0)
+                N[i, 1] = max((r2 - 1 - a21 * N[i-1, 0]) / a22, 0)
+            N1 = np.mean(N[:, 0])
+            N2 = np.mean(N[:, 1])
+        if N1 < 0 and N2 >= 0:
+            N1, N2 = 0.0, (r2 - 1) / a22 if a22 != 0 else 0.0
+        elif N2 < 0 and N1 >= 0:
+            N1, N2 = (r1 - 1) / a11 if a11 != 0 else 0.0, 0.0
+        elif N1 < 0 and N2 < 0:
+            N1, N2 = 0.0, 0.0
+        return N1, N2
+    elif solver == 'numeric': # Numerical simulation with convergence check
+        y1 = np.array([5.0], dtype=np.float64)
+        y2 = np.array([5.0], dtype=np.float64)
+        stop_run = False
+        i = 0
+        while not stop_run and i < 10000:
+            denom1 = 1 + a11 * y1[i] + a12 * y2[i]
+            denom2 = 1 + a22 * y2[i] + a21 * y1[i]
+            per_cap1 = r1 / denom1
+            per_cap2 = r2 / denom2
+            new_y1 = y1[i] * per_cap1
+            new_y2 = y2[i] * per_cap2
+            y1 = np.append(y1, new_y1)
+            y2 = np.append(y2, new_y2)
+            if i >= 1:
+                if (abs(y1[-1] - y1[-2]) < 1e-6 and abs(y2[-1] - y2[-2]) < 1e-6):
+                    stop_run = True
+            i += 1
+        return y1[-1], y2[-1]
 
 
 def compare_counts_test(filtered_data, print_on=False):
-    print('\nEmploy the getPCG function to get PGR1 and PGR2 and compare them:\n')
+    print('\nPGR Statistics:\n')
     count_PGR1, count_PGR2 = [], []
     for _, row in filtered_data.iterrows():
         PGR1, PGR2 = getPCG(row['r1'], row['r2'], row['a11'], row['a12'], row['a21'], row['a22'], row['N1'], row['N2'])
         count_PGR1.append(PGR1)
         count_PGR2.append(PGR2)
-    # Convert lists to pandas Series to handle NaN removal
-    count_PGR1 = pd.Series(count_PGR1)
-    count_PGR2 = pd.Series(count_PGR2)
-    # Remove NaN entries
-    valid_data = pd.DataFrame({'PGR1': count_PGR1, 'PGR2': count_PGR2}).dropna()
-    count_PGR1 = valid_data['PGR1'].to_numpy()
-    count_PGR2 = valid_data['PGR2'].to_numpy()
-    if len(count_PGR1) == 0 or len(count_PGR2) == 0:
-        print("No valid data for statistical test.")
+    count_PGR1 = pd.Series(count_PGR1).dropna()
+    count_PGR2 = pd.Series(count_PGR2).dropna()
+    if count_PGR1.empty or count_PGR2.empty:
+        print("No valid PGR data.")
         return None
-    # Check for normality using Shapiro-Wilk test
-    stat1, p_norm1 = shapiro(count_PGR1)
-    stat2, p_norm2 = shapiro(count_PGR2)
-    normality = (p_norm1 > 0.05) and (p_norm2 > 0.05)
-    if normality:
-        t_stat, p_value = ttest_ind(count_PGR1, count_PGR2, equal_var=False)
-        test_type = 'T-test'
-    else:
-        t_stat, p_value = mannwhitneyu(count_PGR1, count_PGR2, alternative='two-sided')
-        test_type = 'Mann-Whitney U Test'
-    mean1 = np.mean(count_PGR1)
-    mean2 = np.mean(count_PGR2)
-    std1 = np.std(count_PGR1, ddof=1)
-    std2 = np.std(count_PGR2, ddof=1)
-    if p_value<0.05:
-        larger_mean = "PGR1" if mean1 > mean2 else "PGR2"
-        diff_statement=f"Larger mean: {larger_mean}."
-    else:
-        larger_mean = None
-        diff_statement="Means are not statistically different."
-    if not print_on:
-        print(f"{test_type} Results:")
-        print(f"T-statistic = {t_stat:.4f}, p-value = {p_value:.4f}")
-        print(f"Larger mean: {larger_mean}\n")
-    else:
-        print(f"Normality Test (Shapiro-Wilk):")
-        print(f"PGR1: W-statistic = {stat1:.4f}, p-value = {p_norm1:.4f}")
-        print(f"PGR2: W-statistic = {stat2:.4f}, p-value = {p_norm2:.4f}")
-        print(f"Data is normally distributed: {normality}")
-        print(f"\n{test_type} Results:")
-        print(f"T-statistic = {t_stat:.4f}, p-value = {p_value:.4f}")
-        print(f"Mean of PGR1: {mean1:.6f}")
-        print(f"Mean of PGR2: {mean2:.6f}")
-        print(f"Standard deviation of PGR1: {std1:.6f}")
-        print(f"Standard deviation of PGR2: {std2:.6f}")
-    result = {
-        "test_type": test_type,
-        "t_stat": t_stat,
-        "p_value": p_value,
-        "mean_PGR1": mean1,
-        "mean_PGR2": mean2,
-        "std_PGR1": std1,
-        "std_PGR2": std2,
-        "larger_mean": larger_mean,
-        "normality_PGR1": p_norm1, 
-        "normality_PGR2": p_norm2,
-        "normality_passed": normality 
+    # Calculate statistics
+    stats = {
+        "mean_PGR1": count_PGR1.mean(),
+        "mean_PGR2": count_PGR2.mean(),
+        "std_PGR1": count_PGR1.std(ddof=1),
+        "std_PGR2": count_PGR2.std(ddof=1),
+        "median_PGR1": count_PGR1.median(),
+        "median_PGR2": count_PGR2.median()
     }
-    return result
+    print(f"PGR1 Mean \u00B1 SD: {stats['mean_PGR1']:.2g} \u00B1 {stats['std_PGR1']:.2g}")
+    print(f"PGR2 Mean \u00B1 SD: {stats['mean_PGR2']:.2g} \u00B1 {stats['std_PGR2']:.2g}")
+    return stats
 
 
 # # getNFD.r
@@ -142,14 +129,14 @@ def getPCG(r1, r2, a11, a12, a21, a22, N1, N2): # Per capita growth rate calcula
 def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True):
     S1 = r2 / (1 + (a12 / a22) * (r2 - 1))
     S2 = r1 / (1 + (a21 / a11) * (r1 - 1))
-    FE1, FE2 = r1 / r2, r2 / r1  # Fitness equivalence
-    Asy = S1 - S2  # Asymmetry
+    FE1, FE2 = r1 / r2, r2 / r1 # Fitness equivalence
+    Asy = S1 - S2 # Asymmetry
     Rare = 0 if N1 == 0 and N2 == 0 else N1 / (N1 + N2)
     # Calculating covariance for SoS
     x = np.array([N1, N2])
     y_sos = np.array([S1, S2])
     cor_matrix_sos = np.cov(x, y_sos)
-    cor_sos = cor_matrix_sos[0, 1]  # Extracting the correlation between N and SoS
+    cor_sos = cor_matrix_sos[0, 1] # Extracting the correlation between N and SoS
     Rank = 0 if N1 == 0 and N2 == 0 else (2 if N1 / (N1 + N2) <= 0.25 else 1)
     # Equilibrium points
     E1 = (r1 - 1) / a11
@@ -166,7 +153,7 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True):
     if extinc_crit_1:
         Coexist = 0 if N1 < 1 or N2 < 1 else 1
     else:
-        Coexist = 0 if N1 < 5.0e-2 or N2 < 5.0e-2 else 1
+        Coexist = 0 if N1 < 1.0e-6 or N2 < 1.0e-6 else 1
     return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D}
 
 
@@ -209,10 +196,10 @@ def preprocess_data(pars):
     mesh = np.array(np.meshgrid(r1_v, r2_v, a11_v, a12_v, a21_v, a22_v)).T.reshape(-1, 6)
     return mesh
 
-def Sim(k, mesh_row, extinc_crit_1=True):
+def Sim(k, mesh_row, extinc_crit_1=False, solver='numeric'):
     start_time = time.time()
     r1, r2, a11, a12, a21, a22 = mesh_row
-    N1, N2 = analyN(r1, r2, a11, a12, a21, a22)
+    N1, N2 = difference_equation(r1, r2, a11, a12, a21, a22, solver=solver)
     metrics = calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1)
     execution_time = time.time() - start_time
     return {**metrics, "N1": N1, "N2": N2, "r1": r1, "r2": r2, "a11": a11, "a12": a12, "a21": a21, "a22": a22}
@@ -239,7 +226,7 @@ def cor_figure(filter, truncate=False):
     if truncate:
         dat_det = np.trunc(dat_det * 100) / 100.0
     dat_det.sort_values(by=['a22', 'a21', 'a12', 'a11', 'r2', 'r1'], inplace=True)
-    dat_det.to_csv("csv/annplant_2spp_det_rare_filtered.csv", index=False)
+    dat_det.to_csv(f"csv/annplant_2spp_det_rare_filtered_{filter}.csv", index=False)
 
 
 # # figures_det.r
@@ -289,8 +276,8 @@ def report_coexistence_analysis(proportions, correlation_type):
     neg_confint = proportion_confint(count=proportions[negative_key], nobs=proportions[negative_key] + proportions[f'negative_exclusion_{correlation_type}'], alpha=0.05, method='wilson')
     pos_confint = proportion_confint(count=proportions[positive_key], nobs=proportions[positive_key] + proportions[f'positive_exclusion_{correlation_type}'], alpha=0.05, method='wilson')
     print(f"\nAnalysis on Negative \u03BD for {correlation_type.upper()}:")
-    print(f"Proportion of coexistence with \u03BD \u2265 0: {proportions[positive_key] / (proportions[positive_key] + proportions[f'positive_exclusion_{correlation_type}']):.4f} (95% CI: {pos_confint})")
-    print(f"Proportion of coexistence with \u03BD < 0: {proportions[negative_key] / (proportions[negative_key] + proportions[f'negative_exclusion_{correlation_type}']):.4f} (95% CI: {neg_confint})")
+    print(f"Proportion of coexistence with \u03BD \u2265 0: {proportions[positive_key] / (proportions[positive_key] + proportions[f'positive_exclusion_{correlation_type}']):.2g} (95% CI: {pos_confint})")
+    print(f"Proportion of coexistence with \u03BD < 0: {proportions[negative_key] / (proportions[negative_key] + proportions[f'negative_exclusion_{correlation_type}']):.2g} (95% CI: {neg_confint})")
     
 def analyze_coexistence_effect(data, print_on):
     original_dat = data.copy()
@@ -400,10 +387,10 @@ def count_abcd(filtered_data):
     prop_C = count_C_total / total_count if total_count != 0 else 0
     prop_D = count_D_total / total_count if total_count != 0 else 0
     # Print results
-    print(f"A\nCoexist==0: {count_A_0}\nCoexist==1: {count_A_1}\nTotal: {count_A_total}\nProportion: {prop_A:.4f}")
-    print(f"\nB\nCoexist==0: {count_B_0}\nCoexist==1: {count_B_1}\nTotal: {count_B_total}\nProportion: {prop_B:.4f}")
-    print(f"\nC\nCoexist==0: {count_C_0}\nCoexist==1: {count_C_1}\nTotal: {count_C_total}\nProportion: {prop_C:.4f}")
-    print(f"\nD\nCoexist==0: {count_D_0}\nCoexist==1: {count_D_1}\nTotal: {count_D_total}\nProportion: {prop_D:.4f}")
+    print(f"A\nCoexist==0: {count_A_0}\nCoexist==1: {count_A_1}\nTotal: {count_A_total}\nProportion: {prop_A:.2g}")
+    print(f"\nB\nCoexist==0: {count_B_0}\nCoexist==1: {count_B_1}\nTotal: {count_B_total}\nProportion: {prop_B:.2g}")
+    print(f"\nC\nCoexist==0: {count_C_0}\nCoexist==1: {count_C_1}\nTotal: {count_C_total}\nProportion: {prop_C:.2g}")
+    print(f"\nD\nCoexist==0: {count_D_0}\nCoexist==1: {count_D_1}\nTotal: {count_D_total}\nProportion: {prop_D:.2g}")
 
 
 def plot_phase_plane():
@@ -484,45 +471,442 @@ def plot_phase_plane():
     plt.show()
 
 
-# +
-def main():
-    # User choices:
-    extinc_crit_1 = False # True: extinction criterion N<1 (Yenni et al.). False: N<5.0e-2
-    filter_option = 'on' # on: SoS>=1 only (Yenni et al.), inverted: SoS<1 only, off: all SoS
-    truncate = False # True: truncate the values (Yenni et al.). False: keep them unaltered
-    # Create img and csv directories if they don't exist
-    if not os.path.exists('img'):
-        os.makedirs('img')
-    if not os.path.exists('csv'):
-        os.makedirs('csv')
+def plot_pgr_figures(filter_option, save_fig=False, extinc_crit_1=False):
+    plt.rcParams.update({
+        'axes.titlesize': 14,
+        'axes.labelsize': 18,
+        'xtick.labelsize': 16,
+        'ytick.labelsize': 16,
+        'legend.fontsize': 12,
+        'font.size': 18,
+        'lines.linewidth': 1.5
+    })
+    summary_path = f"csv/pgr_analysis_summary_{filter_option}.csv"
+    cols = [
+        'k', 'r1', 'r2', 'a11', 'a12', 'a21', 'a22',
+        'cor_sos', 'nu_sign', 'coexist',
+        'left_PGR1_dominant', 'right_PGR1_dominant', 'curve_cross'
+    ]
+    with open(summary_path, 'w') as f:
+        f.write(','.join(cols) + '\n')
+    try:
+        df = pd.read_csv(f"csv/annplant_2spp_det_rare_filtered_{filter_option}.csv")
+        df['cor_sos'] = pd.to_numeric(df['cor_sos'], errors='coerce')
+        df['Coexist'] = pd.to_numeric(df['Coexist'], errors='coerce').fillna(0).astype(int)
+        conditions = [
+            df['cor_sos'] < -0.001,
+            df['cor_sos'].abs() <= 0.001,
+            df['cor_sos'] > 0.001
+        ]
+        df['nu_sign'] = np.select(conditions, ['negative', 'zero', 'positive'], default='invalid')
+        k_values = [0.25] # , 0.5, 0.75
+        for idx, row in df.iterrows():
+            if row['nu_sign'] == 'invalid':
+                continue
+            for k in k_values:
+                # Edge dominance
+                N1_left = 1e-9
+                N2_left = 1 - N1_left
+                pgr1_left, pgr2_left = getPCG(
+                    row['r1'], row['r2'],
+                    row['a11'], row['a12'],
+                    row['a21'], row['a22'],
+                    N1_left, N2_left
+                )
+                left_PGR1_dominant = int(pgr1_left > pgr2_left) if not (
+                    np.isnan(pgr1_left) or np.isnan(pgr2_left)) else np.nan
+                N1_right = 1.0 - 1e-9
+                N2_right = 1 - N1_right
+                pgr1_right, pgr2_right = getPCG(
+                    row['r1'], row['r2'],
+                    row['a11'], row['a12'],
+                    row['a21'], row['a22'],
+                    N1_right, N2_right
+                )
+                right_PGR1_dominant = int(pgr1_right > pgr2_right) if not (
+                    np.isnan(pgr1_right) or np.isnan(pgr2_right)) else np.nan
+                curve_cross = int(left_PGR1_dominant != right_PGR1_dominant)
+                # Frequency sweep (N1 + N2 = 1)
+                freqs = np.linspace(0, 1, 100)
+                pgr1, pgr2 = [], []
+                for f in freqs:
+                    if f == 0 or f == 1:
+                        f = max(min(f, 1 - 1e-9), 1e-9)
+                    N1 = f
+                    N2 = 1 - f
+                    pgri, pgrj = getPCG(
+                        row['r1'], row['r2'],
+                        row['a11'], row['a12'],
+                        row['a21'], row['a22'],
+                        N1, N2
+                    )
+                    pgr1.append(pgri if not np.isnan(pgri) else np.nan)
+                    pgr2.append(pgrj if not np.isnan(pgrj) else np.nan)
+                csv_line = (
+                    f"{k},{row['r1']},{row['r2']},"
+                    f"{row['a11']},{row['a12']},"
+                    f"{row['a21']},{row['a22']},"
+                    f"{row['cor_sos']},{row['nu_sign']},"
+                    f"{row['Coexist']},{left_PGR1_dominant},{right_PGR1_dominant},{curve_cross}\n"
+                )
+                with open(summary_path, 'a') as f:
+                    f.write(csv_line)
+                fig = plt.figure(figsize=(10,6))
+                try:
+                    ax = fig.add_subplot(111)
+                    ax.plot(freqs, pgr1, '-', color='blue', label='N1')
+                    ax.plot(freqs, pgr2, '--', color='orange', label='N2')
+                    ax.set_xlabel("Frequency of N1")
+                    ax.set_ylabel("log(PGR)")
+                    ax.set_title(
+                        f"\u03BD={row['cor_sos']:.2g}, "
+                        f"Coexist={row['Coexist']},\n" # , k={k}
+                        f"r1={row['r1']} a11={row['a11']} a12={row['a12']}\n"
+                        f"r2={row['r2']} a21={row['a21']} a22={row['a22']}"
+                    )
+                    ax.axhline(0, color='black', linestyle=':', linewidth=0.8)
+                    ax.legend()
+                    fname = (
+                        f"png/r1_{row['r1']}_r2_{row['r2']}_"
+                        f"a11_{row['a11']}_a12_{row['a12']}_"
+                        f"a21_{row['a21']}_a22_{row['a22']}.png" # _pgr_k_{k}_freq
+                    )
+                    if save_fig:
+                        os.makedirs('png', exist_ok=True)
+                        fig.savefig(fname, dpi=150, bbox_inches='tight')
+                finally:
+                    plt.close(fig)
+                    ax.remove()
+                    del ax, fig, freqs, pgr1, pgr2
+                    gc.collect()
+        print("\n=== Analysis Report ===")
+        summary_df = pd.read_csv(summary_path)
+        print("\nEdge Dominance Statistics:")
+        for sign in ['negative', 'zero', 'positive']:
+            sign_df = summary_df[summary_df.nu_sign == sign]
+            if sign_df.empty:
+                continue
+            print(f"\n\u03BD {sign.capitalize()} (N={len(sign_df)}):")
+            print(f"Left edge N1 wins:  {sign_df.left_PGR1_dominant.mean():.1%}")
+            print(f"Right edge N1 wins: {sign_df.right_PGR1_dominant.mean():.1%}")
+        print("\nCoexistence Distribution:")
+        print(pd.crosstab(
+            index=summary_df.nu_sign,
+            columns=summary_df.coexist,
+            margins=True,
+            margins_name="Total"
+        ))
+    except Exception as e:
+        print(f"Analysis failed: {str(e)}")
+
+
+def analyze_hypotheses_descriptive(filter_option, summary_path):
+    df = pd.read_csv(summary_path)
+    # Define hypothesis flags
+    df['H1'] = (df['nu_sign'] == 'positive').astype(int)
+    df['H2'] = df['curve_cross']
+    df['H3'] = df['left_PGR1_dominant']
+    df['H4'] = df['right_PGR1_dominant']
+    # df['H4'] = df['k'].apply(lambda x: 1 if x < 1 else 0)  # k < 1
+    results = []
+    hypotheses = ['H1', 'H2', 'H3', 'H4']
+    # Test all combinations
+    for r in range(1, 5):
+        for combo in combinations(hypotheses, r):
+            combo_name = "+".join(combo)
+            mask = df[list(combo)].all(axis=1)
+            n_cases = mask.sum()
+            if n_cases == 0:
+                continue
+            coexist_proportion = df.loc[mask, 'coexist'].mean()
+            results.append({
+                'Hypothesis': combo_name,
+                'Coexist Proportion': f"{coexist_proportion:.1%}",
+                'N Cases': n_cases
+            })
+    results_df = pd.DataFrame(results).sort_values('Coexist Proportion', ascending=False)
+    print("\n=== Descriptive Analysis (Truth Table) ===")
+    print(results_df.to_string(index=False))
+
+
+def analyze_hypotheses_rf(filter_option, summary_path, seed=1234):
+    df = pd.read_csv(summary_path)
+    nu_map = {'negative': 0, 'zero': 1, 'positive': 2}
+    df['nu_sign'] = df['nu_sign'].map(nu_map)
+    required_features = ['nu_sign', 'curve_cross', 'left_PGR1_dominant', 'right_PGR1_dominant'] # Hypotheses
+    X = df[required_features].copy()
+    y = df['coexist'].values
+    unique_classes = np.unique(y)
+    if unique_classes.size != 2:
+        raise ValueError(f"Coexist column must be binary (0/1). Found: {unique_classes}")
+    model = RandomForestClassifier(n_estimators=1000, max_depth=5, random_state=seed, n_jobs=-1, class_weight='balanced') # Fit Random Forest
+    model.fit(X, y)
+    perm_imp = permutation_importance(model, X, y, n_repeats=10, random_state=seed, n_jobs=-1) # Permutation importance
+    # SHAP analysis
+    shap_imp = pd.Series(np.nan, index=X.columns)
+    shap_vals = None
+    try:
+        explainer = shap.Explainer(model, X, feature_perturbation="interventional")
+        sv = explainer(X)
+        vals = sv.values
+        if vals.ndim == 3:
+            shap_vals = vals[:, :, 1]
+        elif vals.ndim == 2:
+            shap_vals = vals
+        else:
+            raise ValueError(f"Unsupported SHAP values ndim: {vals.ndim}")
+        if shap_vals.shape == (X.shape[1], X.shape[0]):
+            shap_vals = shap_vals.T
+        if shap_vals.shape != (X.shape[0], X.shape[1]):
+            raise ValueError(f"SHAP/Feature dimension mismatch after transpose check: {shap_vals.shape} vs {X.shape}")
+        abs_imp = np.abs(shap_vals).mean(axis=0)
+        total = abs_imp.sum()
+        if total > 0:
+            shap_imp = pd.Series((abs_imp / total).round(3), index=X.columns)
+    except Exception as e:
+        print(f"SHAP Calculation Error: {e}")
+    # Build and print the importance table
+    imp_df = pd.DataFrame({
+        'Feature': X.columns,
+        'Permutation Importance': perm_imp.importances_mean.round(3),
+        'SHAP Impact (%)': (shap_imp * 100).round(1)
+    }).sort_values('SHAP Impact (%)', ascending=False)
+    print("\n=== Feature Importance ===")
+    print(imp_df.to_string(index=False, float_format="%.2g"))
+    if shap_vals is not None:
+        try:
+            plt.figure(figsize=(10, 6))
+            shap.summary_plot(
+                shap_vals, X.values,
+                feature_names=X.columns,
+                plot_type='dot', show=False
+            )
+            plt.tight_layout()
+            os.makedirs('shap', exist_ok=True)
+            plt.savefig(f'shap/shap_{filter_option}.png', dpi=150, bbox_inches='tight')
+            plt.close()
+        except Exception as e:
+            print(f"SHAP Visualization Error: {e}")
+    else:
+        print("Skipping SHAP visualization due to missing values")
+
+
+def analyze_hypotheses(filter_option, summary_path):
+    """Hypothesis testing"""
+    print("\n" + "="*140)
+    print("Hypothesis Definitions:")
+    print("\n(H1) Sign of \u03BD (cor_sos)")
+    print("\n(H2) Curve crossing (left/right edge dominance differs)")
+    print("\n(H3) PGR1 at left edge is higher")
+    print("\n(H4) PGR1 at right edge is higher")
+    # print("\n(H4) Value of k parameter")
+    print("="*50 + "\n")
+    df = pd.read_csv(summary_path)
+    df['curve_cross'] = (df['left_PGR1_dominant'] != df['right_PGR1_dominant']).astype(int)
+    print("\n--- Hypothesis Analysis Results ---")
+    analyze_hypotheses_rf(filter_option, summary_path)
+
+
+def analyze_coexistence_deterministic(filter_option):
+    summary_path = f"csv/pgr_analysis_summary_{filter_option}.csv"
+    if not os.path.exists(summary_path):
+        print(f"\n-----------\nGenerating analysis data for {filter_option}...")
+        plot_pgr_figures(filter_option, save_fig=False, extinc_crit_1=False)
+    try:
+        df = pd.read_csv(summary_path)
+        if df.empty:
+            raise ValueError("Empty summary file - regenerate manually")
+        df = df[df['nu_sign'].isin(['negative', 'zero', 'positive'])]
+        df['curve_cross'] = (df['left_PGR1_dominant'] != df['right_PGR1_dominant']).astype(int)
+        analyze_hypotheses(filter_option, summary_path)
+    except Exception as e:
+        print(f"Analysis failed: {str(e)}")
+        return
+    nu_order = ['negative', 'zero', 'positive']
+    cross_labels = ['No Cross', 'Cross']
+    nu_symbols = {'negative': '\u03BD<0', 'zero': '\u03BD\u2248 0', 'positive': '\u03BD>0'}
+    plt.rcParams.update({
+        'axes.titlesize': 14,
+        'axes.labelsize': 12,
+        'xtick.labelsize': 12,
+        'ytick.labelsize': 12,
+        'legend.fontsize': 10,
+        'font.size': 12,
+        'lines.linewidth': 1.5
+    })
+    # 1. Coexistence vs Curve Crossing
+    s1 = df.groupby('curve_cross')['coexist'].agg(['sum', 'count'])
+    s1['p_co'] = s1['sum'] / s1['count']
+    s1['p_no'] = 1 - s1['p_co']
+    fig, ax = plt.subplots(figsize=(6, 4))
+    x = np.arange(len(s1))
+    ax.bar(x, s1['p_co'], color='blue', label='Coexist')
+    ax.bar(x, s1['p_no'], bottom=s1['p_co'], color='red', label='Non-coexist')
+    # Annotate each segment
+    for i in x:
+        total = s1.iloc[i]['count']
+        p_co = s1.iloc[i]['p_co']
+        p_no = s1.iloc[i]['p_no']
+        sum_co = s1.iloc[i]['sum']
+        sum_no = total - sum_co
+        # Coexist segment
+        ax.text(i, p_co/2, f"{p_co:.1%}\n({sum_co})",  # :.0g
+                ha='center', va='center', color='white', fontsize=8)
+        # Non-coexist segment
+        ax.text(i, p_co + p_no/2, f"{p_no:.1%}\n({sum_no})",  # :.0g
+                ha='center', va='center', color='white', fontsize=8)
+    ax.set_xticks(x)
+    ax.set_xticklabels(cross_labels)
+    ax.set_ylabel("Percentage")
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0%}"))
+    ax.legend(loc='upper right', bbox_to_anchor=(1, 1))
+    plt.tight_layout()
+    plt.savefig(f'img/hypothesis_1_{filter_option}.png', dpi=300)
+    plt.close()
+    # 2. Coexistence vs nu sign
+    s2 = df.groupby('nu_sign')['coexist'].agg(['sum', 'count']).reindex(nu_order)
+    s2['p_co'] = s2['sum'] / s2['count']
+    s2['p_no'] = 1 - s2['p_co']
+    fig, ax = plt.subplots(figsize=(6, 4))
+    x = np.arange(len(s2))
+    ax.bar(x, s2['p_co'], color='blue', label='Coexist')
+    ax.bar(x, s2['p_no'], bottom=s2['p_co'], color='red', label='Non-coexist')
+    # Annotate each segment
+    for i in x:
+        total = s2.iloc[i]['count']
+        p_co = s2.iloc[i]['p_co']
+        p_no = s2.iloc[i]['p_no']
+        sum_co = s2.iloc[i]['sum']
+        sum_no = total - sum_co
+        ax.text(i, p_co/2, f"{p_co:.1%}\n({sum_co})",  # :.0g
+                ha='center', va='center', color='white', fontsize=8)
+        ax.text(i, p_co + p_no/2, f"{p_no:.1%}\n({sum_no})",  # :.0g
+                ha='center', va='center', color='white', fontsize=8)
+    ax.set_xticks(x)
+    ax.set_xticklabels([nu_symbols[nu] for nu in nu_order])
+    ax.set_ylabel("Percentage")
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0%}"))
+    ax.legend(loc='upper right', bbox_to_anchor=(1, 1))
+    plt.tight_layout()
+    plt.savefig(f'img/hypothesis_2_{filter_option}.png', dpi=300)
+    plt.close()
+    # 3. Coexistence vs Curve Crossing by nu sign
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4), sharey=True)
+    for ax, nu in zip(axes, nu_order):
+        sub = df[df['nu_sign'] == nu]
+        s3 = sub.groupby('curve_cross')['coexist'].agg(['sum', 'count'])
+        if s3.empty:
+            continue
+        s3['p_co'] = s3['sum'] / s3['count']
+        s3['p_no'] = 1 - s3['p_co']
+        x_sub = np.arange(len(s3))
+        ax.bar(x_sub, s3['p_co'], color='blue')
+        ax.bar(x_sub, s3['p_no'], bottom=s3['p_co'], color='red')
+        # Annotate each segment
+        for j in x_sub:
+            total = s3.iloc[j]['count']
+            p_co = s3.iloc[j]['p_co']
+            p_no = s3.iloc[j]['p_no']
+            sum_co = s3.iloc[j]['sum']
+            sum_no = total - sum_co
+            ax.text(j, p_co/2, f"{p_co:.1%}\n({sum_co})",  # :.0g
+                    ha='center', va='center', color='white', fontsize=8)
+            ax.text(j, p_co + p_no/2, f"{p_no:.1%}\n({sum_no})",  # :.0g
+                    ha='center', va='center', color='white', fontsize=8)
+        ax.set_xticks(x_sub)
+        ax.set_xticklabels(cross_labels)
+        ax.set_title(nu_symbols[nu])
+        if ax == axes[0]:
+            ax.set_ylabel("Percentage")
+    handles = [plt.Rectangle((0,0),1,1, color=c, edgecolor='k') for c in ['blue', 'red']]
+    fig.legend(handles, ['Coexist', 'Non-coexist'], loc='upper right', bbox_to_anchor=(0.99, 0.99))
+    plt.tight_layout()
+    plt.savefig(f'img/hypothesis_3_{filter_option}.png', dpi=300)
+    plt.close()
+    # 4. Heatmap: Coexistence count/total and percentage
+    heat = df.groupby(['nu_sign', 'curve_cross']).agg(
+        total=('coexist', 'count'),
+        coexist=('coexist', 'sum')
+    ).reset_index().set_index(['nu_sign', 'curve_cross'])
+    # Prepare matrices
+    total_mat = heat['total'].unstack().reindex(index=nu_order, columns=[0, 1]).fillna(0)
+    co_mat = heat['coexist'].unstack().reindex(index=nu_order, columns=[0, 1]).fillna(0)
+    pct_mat = co_mat / total_mat.replace(0, np.nan)
+    # Create annotation text: coexist/total (pct%)
+    annot = (co_mat.astype(int).astype(str) + "/" + total_mat.astype(int).astype(str) + 
+             "\n(" + (pct_mat * 100).round(1).astype(str) + "%)").values
+    fig, ax = plt.subplots(figsize=(6, 5))
+    sns.heatmap(
+        pct_mat,
+        annot=annot,
+        fmt='',
+        cmap="YlGnBu",
+        cbar_kws={'label': 'Coexistence %'},
+        linewidths=0.5,
+        linecolor='grey',
+        ax=ax
+    )
+    ax.set_xlabel("Curve Crossing")
+    ax.set_ylabel("\u03BD Sign")
+    ax.set_xticklabels(cross_labels)
+    ax.set_yticklabels([nu_symbols[nu] for nu in nu_order], rotation=0)
+    plt.tight_layout()
+    plt.savefig(f'img/coexistence_heatmap_{filter_option}.png', dpi=300)
+    plt.close()
+    # 5. Core Analysis Tables
+    analysis_data = df.groupby(['nu_sign', 'curve_cross', 'coexist']).size().unstack().fillna(0)
+    analysis_data['Total'] = analysis_data.sum(axis=1)
+    analysis_data = analysis_data.reindex(pd.MultiIndex.from_product(
+        [nu_order, [0, 1]],
+        names=['\u03BD Sign', 'Curve Cross']
+    ))
+    print("\n=== Coexistence Analysis ===")
+    print(analysis_data.astype(int).to_string())
+
+
+def setup_pipeline(filters, base_file, solver, truncate, extinc_crit_1):
+    os.makedirs('img', exist_ok=True)
+    os.makedirs('csv', exist_ok=True)
     warnings.filterwarnings("ignore")
-    # Specify paths for the output files
-    initial_output_file = "csv/annplant_2spp_det_rare.csv"
-    filtered_output_file = "csv/annplant_2spp_det_rare_filtered.csv"
-    # Generate the parameter mesh
-    mesh = preprocess_data('table1') # options: r_code, table1, paper, or minimal
-    # Run the simulation for each parameter set in the mesh
-    results = [Sim(k, row, extinc_crit_1) for k, row in tqdm(enumerate(mesh), total=len(mesh))]
-    # Convert the list of dictionaries into a DataFrame and save to CSV
-    results_df = pd.DataFrame(results)
-    results_df.to_csv(initial_output_file, index=False)
-    # Apply filters and generate the filtered data CSV
-    cor_figure(filter_option, truncate) 
-    # Load the filtered data from CSV into a DataFrame
-    filtered_data = pd.read_csv(filtered_output_file)
-    # Analysis for all scenarios using the filtered dataset
-    print("Analysis for All Scenarios:")
-    models_results = analyze_coexistence_effect(filtered_data, print_on=False)  # Pass DataFrame directly
-    print("\n\n--------------------------------------------------------\n\n")
-    # Call the function to generate and save the plots
-    plot_phase_plane()
-    print("\n\n--------------------------------------------------------\n\n")
-    # Call the function to count and print the occurrences of A, B, C, and D
-    count_abcd(filtered_data)
-    print("\n\n--------------------------------------------------------\n\n")
-    # Perform the t-test on PGR1 and PGR2
-    filtered_C_data = filtered_data[filtered_data['C'] == True]
-    compare_counts_test(filtered_C_data, print_on=True)
+    if not os.path.exists(base_file):
+        print("Running simulation...")
+        mesh = preprocess_data('table1')
+        results = [Sim(k, row, extinc_crit_1=extinc_crit_1, solver=solver) 
+                   for k, row in tqdm(enumerate(mesh), total=len(mesh))]
+        postprocess_results(results, base_file)
+    for filter_option in filters:
+        filtered_filename = f"csv/annplant_2spp_det_rare_filtered_{filter_option}.csv"
+        if not os.path.exists(filtered_filename):
+            print(f"\nGenerating data for filter={filter_option}...")
+            cor_figure(filter_option, truncate)
+        summary_path = f"csv/pgr_analysis_summary_{filter_option}.csv"
+        if not os.path.exists(summary_path):
+            plot_pgr_figures(filter_option, save_fig=False, extinc_crit_1=False)
+        try:
+            filtered_data = pd.read_csv(filtered_filename)
+            bool_cols = ['Coexist', 'A', 'B', 'C', 'D']
+            for col in bool_cols:
+                if col in filtered_data.columns:
+                    filtered_data[col] = filtered_data[col].astype(bool)
+            print("\nAnalysis:")
+            analyze_coexistence_effect(filtered_data, False)
+            plot_phase_plane()
+            count_abcd(filtered_data)
+            if 'C' in filtered_data.columns:
+                compare_counts_test(filtered_data[filtered_data['C']], True)
+        except Exception as e:
+            print(f"Processing error: {str(e)}")
+        analyze_coexistence_deterministic(filter_option)
+
+
+def main():
+    filters = ['on', 'off']
+    base_file = "csv/annplant_2spp_det_rare.csv"
+    solver = 'numeric' # 'analyN'
+    truncate = False
+    extinc_crit_1 = False
+    setup_pipeline(filters, base_file, solver, truncate, extinc_crit_1)
+
 
 if __name__ == "__main__":
     main()
