@@ -600,48 +600,47 @@ def plot_pgr_figures(filter_option, save_fig=False, extinc_crit_1=False):
         print(f"Analysis failed: {str(e)}")
 
 
-def analyze_hypotheses_descriptive(filter_option, summary_path):
-    df = pd.read_csv(summary_path)
-    # Define hypothesis flags
-    df['H1'] = (df['nu_sign'] == 'positive').astype(int)
-    df['H2'] = df['curve_cross']
-    df['H3'] = df['left_PGR1_dominant']
-    df['H4'] = df['right_PGR1_dominant']
-    # df['H4'] = df['k'].apply(lambda x: 1 if x < 1 else 0)  # k < 1
-    results = []
-    hypotheses = ['H1', 'H2', 'H3', 'H4']
-    # Test all combinations
-    for r in range(1, 5):
-        for combo in combinations(hypotheses, r):
-            combo_name = "+".join(combo)
-            mask = df[list(combo)].all(axis=1)
-            n_cases = mask.sum()
-            if n_cases == 0:
-                continue
-            coexist_proportion = df.loc[mask, 'coexist'].mean()
-            results.append({
-                'Hypothesis': combo_name,
-                'Coexist Proportion': f"{coexist_proportion:.1%}",
-                'N Cases': n_cases
-            })
-    results_df = pd.DataFrame(results).sort_values('Coexist Proportion', ascending=False)
-    print("\n=== Descriptive Analysis (Truth Table) ===")
-    print(results_df.to_string(index=False))
-
+# def analyze_hypotheses_descriptive(filter_option, summary_path):
+#     df = pd.read_csv(summary_path)
+#     # Define hypothesis flags
+#     df['H1'] = (df['nu_sign'] == 'positive').astype(int)
+#     df['H2'] = df['curve_cross']
+#     df['H3'] = df['left_PGR1_dominant']
+#     # df['H4'] = df['right_PGR1_dominant']
+#     # df['H4'] = df['k'].apply(lambda x: 1 if x < 1 else 0)  # k < 1
+#     results = []
+#     hypotheses = ['H1', 'H2', 'H3'] # , 'H4'
+#     # Test all combinations
+#     for r in range(1, 5):
+#         for combo in combinations(hypotheses, r):
+#             combo_name = "+".join(combo)
+#             mask = df[list(combo)].all(axis=1)
+#             n_cases = mask.sum()
+#             if n_cases == 0:
+#                 continue
+#             coexist_proportion = df.loc[mask, 'coexist'].mean()
+#             results.append({
+#                 'Hypothesis': combo_name,
+#                 'Coexist Proportion': f"{coexist_proportion:.1%}",
+#                 'N Cases': n_cases
+#             })
+#     results_df = pd.DataFrame(results).sort_values('Coexist Proportion', ascending=False)
+#     print("\n=== Descriptive Analysis (Truth Table) ===")
+#     print(results_df.to_string(index=False))
 
 def analyze_hypotheses_rf(filter_option, summary_path, seed=1234):
     df = pd.read_csv(summary_path)
     nu_map = {'negative': 0, 'zero': 1, 'positive': 2}
     df['nu_sign'] = df['nu_sign'].map(nu_map)
-    required_features = ['nu_sign', 'curve_cross', 'left_PGR1_dominant', 'right_PGR1_dominant'] # Hypotheses
+    required_features = ['nu_sign', 'curve_cross', 'left_PGR1_dominant'] # Hypotheses, , 'right_PGR1_dominant'
     X = df[required_features].copy()
     y = df['coexist'].values
     unique_classes = np.unique(y)
     if unique_classes.size != 2:
         raise ValueError(f"Coexist column must be binary (0/1). Found: {unique_classes}")
-    model = RandomForestClassifier(n_estimators=1000, max_depth=5, random_state=seed, n_jobs=-1, class_weight='balanced') # Fit Random Forest
+    model = RandomForestClassifier(n_estimators=1000, random_state=seed, n_jobs=-1, class_weight='balanced_subsample') # Fit Random Forest
     model.fit(X, y)
-    perm_imp = permutation_importance(model, X, y, n_repeats=10, random_state=seed, n_jobs=-1) # Permutation importance
+    perm_imp = permutation_importance(model, X, y, n_repeats=100, random_state=seed, n_jobs=-1) # Permutation importance
     # SHAP analysis
     shap_imp = pd.Series(np.nan, index=X.columns)
     shap_vals = None
@@ -698,8 +697,7 @@ def analyze_hypotheses(filter_option, summary_path):
     print("\n(H1) Sign of \u03BD (cor_sos)")
     print("\n(H2) Curve crossing (left/right edge dominance differs)")
     print("\n(H3) PGR1 at left edge is higher")
-    print("\n(H4) PGR1 at right edge is higher")
-    # print("\n(H4) Value of k parameter")
+    # print("\n(H4) PGR1 at right edge is higher")
     print("="*50 + "\n")
     df = pd.read_csv(summary_path)
     df['curve_cross'] = (df['left_PGR1_dominant'] != df['right_PGR1_dominant']).astype(int)
