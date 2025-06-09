@@ -7,3 +7,4 @@ R_equivalent/
 RareStabilizationSimulation-master/
 .env/
 .ipynb_checkpoints/
+.gitignore
