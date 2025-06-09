@@ -613,7 +613,7 @@ def plot_pgr_figures(filter_option, save_fig=False, extinc_crit_1=False):
     })
     summary_path = f"csv/pgr_analysis_summary_{filter_option}.csv"
     cols = [
-        'k', 'r1', 'r2', 'a11', 'a12', 'a21', 'a22',
+        'r1', 'r2', 'a11', 'a12', 'a21', 'a22',
         'cor_sos', 'nu_sign', 'coexist',
         'left_PGR1_dominant', 'right_PGR1_dominant', 'curve_cross'
     ]
@@ -629,86 +629,86 @@ def plot_pgr_figures(filter_option, save_fig=False, extinc_crit_1=False):
             df['cor_sos'] > 0.001
         ]
         df['nu_sign'] = np.select(conditions, ['negative', 'zero', 'positive'], default='invalid')
-        k_values = [0.25] # , 0.5, 0.75
+        # k_values = [0.25] # , 0.5, 0.75
         for idx, row in df.iterrows():
             if row['nu_sign'] == 'invalid':
                 continue
-            for k in k_values:
-                # Edge dominance
-                N1_left = 1e-9
-                N2_left = 1 - N1_left
-                pgr1_left, pgr2_left = getPCG(
+            # for k in k_values:
+            # Edge dominance
+            N1_left = 1e-9
+            N2_left = 1 - N1_left
+            pgr1_left, pgr2_left = getPCG(
+                row['r1'], row['r2'],
+                row['a11'], row['a12'],
+                row['a21'], row['a22'],
+                N1_left, N2_left
+            )
+            left_PGR1_dominant = int(pgr1_left > pgr2_left) if not (
+                np.isnan(pgr1_left) or np.isnan(pgr2_left)) else np.nan
+            N1_right = 1.0 - 1e-9
+            N2_right = 1 - N1_right
+            pgr1_right, pgr2_right = getPCG(
+                row['r1'], row['r2'],
+                row['a11'], row['a12'],
+                row['a21'], row['a22'],
+                N1_right, N2_right
+            )
+            right_PGR1_dominant = int(pgr1_right > pgr2_right) if not (
+                np.isnan(pgr1_right) or np.isnan(pgr2_right)) else np.nan
+            curve_cross = int(left_PGR1_dominant != right_PGR1_dominant)
+            # Frequency sweep (N1 + N2 = 1)
+            freqs = np.linspace(0, 1, 100)
+            pgr1, pgr2 = [], []
+            for f in freqs:
+                if f == 0 or f == 1:
+                    f = max(min(f, 1 - 1e-9), 1e-9)
+                N1 = f
+                N2 = 1 - f
+                pgri, pgrj = getPCG(
                     row['r1'], row['r2'],
                     row['a11'], row['a12'],
                     row['a21'], row['a22'],
-                    N1_left, N2_left
+                    N1, N2
                 )
-                left_PGR1_dominant = int(pgr1_left > pgr2_left) if not (
-                    np.isnan(pgr1_left) or np.isnan(pgr2_left)) else np.nan
-                N1_right = 1.0 - 1e-9
-                N2_right = 1 - N1_right
-                pgr1_right, pgr2_right = getPCG(
-                    row['r1'], row['r2'],
-                    row['a11'], row['a12'],
-                    row['a21'], row['a22'],
-                    N1_right, N2_right
+                pgr1.append(pgri if not np.isnan(pgri) else np.nan)
+                pgr2.append(pgrj if not np.isnan(pgrj) else np.nan)
+            csv_line = (
+                f"{row['r1']},{row['r2']},"
+                f"{row['a11']},{row['a12']},"
+                f"{row['a21']},{row['a22']},"
+                f"{row['cor_sos']},{row['nu_sign']},"
+                f"{row['Coexist']},{left_PGR1_dominant},{right_PGR1_dominant},{curve_cross}\n"
+            )
+            with open(summary_path, 'a') as f:
+                f.write(csv_line)
+            fig = plt.figure(figsize=(8,6))
+            try:
+                ax = fig.add_subplot(111)
+                ax.plot(freqs, pgr1, '-', color='blue', label='N1')
+                ax.plot(freqs, pgr2, '--', color='orange', label='N2')
+                ax.set_xlabel("Frequency")
+                ax.set_ylabel("log(PGR)")
+                ax.set_title(
+                    f"\u03BD={row['cor_sos']:.2g}, "
+                    f"Coexist={row['Coexist']},\n"
+                    f"r1={row['r1']} a11={row['a11']} a12={row['a12']}\n"
+                    f"r2={row['r2']} a21={row['a21']} a22={row['a22']}"
                 )
-                right_PGR1_dominant = int(pgr1_right > pgr2_right) if not (
-                    np.isnan(pgr1_right) or np.isnan(pgr2_right)) else np.nan
-                curve_cross = int(left_PGR1_dominant != right_PGR1_dominant)
-                # Frequency sweep (N1 + N2 = 1)
-                freqs = np.linspace(0, 1, 100)
-                pgr1, pgr2 = [], []
-                for f in freqs:
-                    if f == 0 or f == 1:
-                        f = max(min(f, 1 - 1e-9), 1e-9)
-                    N1 = f
-                    N2 = 1 - f
-                    pgri, pgrj = getPCG(
-                        row['r1'], row['r2'],
-                        row['a11'], row['a12'],
-                        row['a21'], row['a22'],
-                        N1, N2
-                    )
-                    pgr1.append(pgri if not np.isnan(pgri) else np.nan)
-                    pgr2.append(pgrj if not np.isnan(pgrj) else np.nan)
-                csv_line = (
-                    f"{k},{row['r1']},{row['r2']},"
-                    f"{row['a11']},{row['a12']},"
-                    f"{row['a21']},{row['a22']},"
-                    f"{row['cor_sos']},{row['nu_sign']},"
-                    f"{row['Coexist']},{left_PGR1_dominant},{right_PGR1_dominant},{curve_cross}\n"
+                ax.axhline(0, color='black', linestyle=':', linewidth=0.8)
+                ax.legend()
+                fname = (
+                    f"png/r1_{row['r1']}_r2_{row['r2']}_"
+                    f"a11_{row['a11']}_a12_{row['a12']}_"
+                    f"a21_{row['a21']}_a22_{row['a22']}.png"
                 )
-                with open(summary_path, 'a') as f:
-                    f.write(csv_line)
-                fig = plt.figure(figsize=(10,6))
-                try:
-                    ax = fig.add_subplot(111)
-                    ax.plot(freqs, pgr1, '-', color='blue', label='N1')
-                    ax.plot(freqs, pgr2, '--', color='orange', label='N2')
-                    ax.set_xlabel("Frequency of N1")
-                    ax.set_ylabel("log(PGR)")
-                    ax.set_title(
-                        f"\u03BD={row['cor_sos']:.2g}, "
-                        f"Coexist={row['Coexist']},\n" # , k={k}
-                        f"r1={row['r1']} a11={row['a11']} a12={row['a12']}\n"
-                        f"r2={row['r2']} a21={row['a21']} a22={row['a22']}"
-                    )
-                    ax.axhline(0, color='black', linestyle=':', linewidth=0.8)
-                    ax.legend()
-                    fname = (
-                        f"png/r1_{row['r1']}_r2_{row['r2']}_"
-                        f"a11_{row['a11']}_a12_{row['a12']}_"
-                        f"a21_{row['a21']}_a22_{row['a22']}.png" # _pgr_k_{k}_freq
-                    )
-                    if save_fig:
-                        os.makedirs('png', exist_ok=True)
-                        fig.savefig(fname, dpi=150, bbox_inches='tight')
-                finally:
-                    plt.close(fig)
-                    ax.remove()
-                    del ax, fig, freqs, pgr1, pgr2
-                    gc.collect()
+                if save_fig:
+                    os.makedirs('png', exist_ok=True)
+                    fig.savefig(fname, dpi=150, bbox_inches='tight')
+            finally:
+                plt.close(fig)
+                ax.remove()
+                del ax, fig, freqs, pgr1, pgr2
+                gc.collect()
         print("\n=== Analysis Report ===")
         summary_df = pd.read_csv(summary_path)
         print("\nEdge Dominance Statistics:")
