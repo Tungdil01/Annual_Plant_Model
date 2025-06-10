@@ -467,139 +467,10 @@ def plot_phase_plane():
         ax.tick_params(axis='both', which='major', labelsize=18)
     # Adjust layout and save the figure
     plt.tight_layout()
+    os.makedirs('img', exist_ok=True)
     plt.savefig('img/phase_plane.png')
     plt.show()
 
-
-# def plot_pgr_figures(filter_option, save_fig=False, extinc_crit_1=False):
-#     plt.rcParams.update({
-#         'axes.titlesize': 14,
-#         'axes.labelsize': 18,
-#         'xtick.labelsize': 16,
-#         'ytick.labelsize': 16,
-#         'legend.fontsize': 12,
-#         'font.size': 18,
-#         'lines.linewidth': 1.5
-#     })
-#     summary_path = f"csv/pgr_analysis_summary_{filter_option}.csv"
-#     cols = [
-#         'r1', 'r2', 'a11', 'a12', 'a21', 'a22',
-#         'cor_sos', 'nu_sign', 'coexist',
-#         'NFD1', 'NFD2', 'SOS1', 'SOS2'
-#     ]
-#     with open(summary_path, 'w') as f:
-#         f.write(','.join(cols) + '\n')
-#     try:
-#         df = pd.read_csv(f"csv/annplant_2spp_det_rare_filtered_{filter_option}.csv")
-#         df['cor_sos'] = pd.to_numeric(df['cor_sos'], errors='coerce')
-#         df['Coexist'] = pd.to_numeric(df['Coexist'], errors='coerce').fillna(0).astype(int)
-#         conditions = [
-#             df['cor_sos'] < -0.001,
-#             df['cor_sos'].abs() <= 0.001,
-#             df['cor_sos'] > 0.001
-#         ]
-#         df['nu_sign'] = np.select(conditions, ['negative', 'zero', 'positive'], default='invalid')
-#         lowN = 0.001  # Low density threshold
-#         deltaN = 10.0  # Density increment
-#         for idx, row in df.iterrows():
-#             if row['nu_sign'] == 'invalid':
-#                 continue
-#             # Get parameters from current row
-#             r1, r2 = row['r1'], row['r2']
-#             a11, a12, a21, a22 = row['a11'], row['a12'], row['a21'], row['a22']
-#             SOS1 = row['S1']
-#             SOS2 = row['S2']
-#             # Helper function to calculate competitor density
-#             def get_competitor_density(focal_species, N_focal):
-#                 if focal_species == 0:  # Focal is species1, solve for species2
-#                     if a22 == 0:
-#                         return 0
-#                     N_comp = (r2 - 1 - a21 * N_focal) / a22
-#                     return max(0, N_comp)
-#                 else:  # Focal is species2, solve for species1
-#                     if a11 == 0:
-#                         return 0
-#                     N_comp = (r1 - 1 - a12 * N_focal) / a11
-#                     return max(0, N_comp)
-#             # Calculate points for species 1
-#             N1_low = lowN
-#             N2_low = get_competitor_density(0, N1_low)
-#             total_low = N1_low + N2_low
-#             freq1_low = N1_low / total_low if total_low > 0 else 0
-#             pgr1_low, _ = getPCG(r1, r2, a11, a12, a21, a22, N1_low, N2_low)
-#             N1_high = lowN + deltaN
-#             N2_high = get_competitor_density(0, N1_high)
-#             total_high = N1_high + N2_high
-#             freq1_high = N1_high / total_high if total_high > 0 else 0
-#             pgr1_high, _ = getPCG(r1, r2, a11, a12, a21, a22, N1_high, N2_high)
-#             # Calculate points for species 2
-#             N2_low2 = lowN
-#             N1_low2 = get_competitor_density(1, N2_low2)
-#             total_low2 = N1_low2 + N2_low2
-#             freq2_low = N2_low2 / total_low2 if total_low2 > 0 else 0
-#             _, pgr2_low = getPCG(r1, r2, a11, a12, a21, a22, N1_low2, N2_low2)
-#             N2_high2 = lowN + deltaN
-#             N1_high2 = get_competitor_density(1, N2_high2)
-#             total_high2 = N1_high2 + N2_high2
-#             freq2_high = N2_high2 / total_high2 if total_high2 > 0 else 0
-#             _, pgr2_high = getPCG(r1, r2, a11, a12, a21, a22, N1_high2, N2_high2)
-#             # Calculate NFD values
-#             NFD1 = - (pgr1_high - pgr1_low) / (freq1_high - freq1_low) if (freq1_high - freq1_low) != 0 else np.nan
-#             NFD2 = - (pgr2_high - pgr2_low) / (freq2_high - freq2_low) if (freq2_high - freq2_low) != 0 else np.nan
-#             # Write to summary
-#             csv_line = (
-#                 f"{r1},{r2},{a11},{a12},{a21},{a22},"
-#                 f"{row['cor_sos']},{row['nu_sign']},{row['Coexist']},"
-#                 f"{NFD1},{NFD2},{SOS1},{SOS2}\n"
-#             )
-#             with open(summary_path, 'a') as f:
-#                 f.write(csv_line)
-#             # Create plot
-#             fig = plt.figure(figsize=(10,6))
-#             ax = fig.add_subplot(111)
-#             # Species 1 line
-#             ax.plot([freq1_low, freq1_high], [pgr1_low, pgr1_high], 'o-', color='blue', label='Species 1')
-#             # Species 2 line
-#             ax.plot([freq2_low, freq2_high], [pgr2_low, pgr2_high], 's--', color='orange', label='Species 2')
-#             ax.axhline(0, color='black', linestyle=':', linewidth=0.8)
-#             ax.set_xlabel("Frequency of focal species")
-#             ax.set_ylabel("log(PGR)")
-#             ax.set_title(
-#                 f"\u03BD={row['cor_sos']:.2g}, Coexist={row['Coexist']}\n"
-#                 f"r1={r1} a11={a11} a12={a12}\n"
-#                 f"r2={r2} a21={a21} a22={a22}"
-#             )
-#             ax.legend()
-#             if save_fig:
-#                 os.makedirs('png', exist_ok=True)
-#                 fname = (
-#                     f"png/r1_{r1}_r2_{r2}_"
-#                     f"a11_{a11}_a12_{a12}_"
-#                     f"a21_{a21}_a22_{a22}.png"
-#                 )
-#                 fig.savefig(fname, dpi=150, bbox_inches='tight')
-#             plt.close(fig)
-#             gc.collect()
-#         # Analysis report
-#         print("\n=== Analysis Report ===")
-#         summary_df = pd.read_csv(summary_path)
-#         print("\nNFD and SOS Comparison:")
-#         for sign in ['negative', 'zero', 'positive']:
-#             sign_df = summary_df[summary_df.nu_sign == sign]
-#             if sign_df.empty:
-#                 continue
-#             print(f"\n\u03BD {sign.capitalize()} (N={len(sign_df)}):")
-#             print(f"  Species1: NFD={sign_df.NFD1.mean():.2g}, SOS={sign_df.SOS1.mean():.2g}")
-#             print(f"  Species2: NFD={sign_df.NFD2.mean():.2g}, SOS={sign_df.SOS2.mean():.2g}")
-#         print("\nCoexistence Distribution:")
-#         print(pd.crosstab(
-#             index=summary_df.nu_sign,
-#             columns=summary_df.coexist,
-#             margins=True,
-#             margins_name="Total"
-#         ))
-#     except Exception as e:
-#         print(f"Analysis failed: {str(e)}")
 
 def plot_pgr_figures(filter_option, save_fig=False, extinc_crit_1=False):
     plt.rcParams.update({
@@ -629,83 +500,229 @@ def plot_pgr_figures(filter_option, save_fig=False, extinc_crit_1=False):
             df['cor_sos'] > 0.001
         ]
         df['nu_sign'] = np.select(conditions, ['negative', 'zero', 'positive'], default='invalid')
+        lowN = 0.001
+        deltaN = 10.0
         for idx, row in df.iterrows():
             if row['nu_sign'] == 'invalid':
                 continue
             # Get parameters
-            r1,r1 = row['r1'],row['r2']
-            a11,a12,a21,a22 = row['a11'],row['a12'],row['a21'],row['a22']
-            # Edge frequencies
-            N1_left = 1e-9
-            N2_left = 1 - N1_left
-            pgr1_left, pgr2_left = getPCG(
-                r1, r2,
-                a11, a12,
-                a21, a22,
-                N1_left, N2_left
-            )
-            left_PGR1_dominant = int(pgr1_left > pgr2_left) if not (
-                np.isnan(pgr1_left) or np.isnan(pgr2_left)) else np.nan
-            N1_right = 1.0 - 1e-9
-            N2_right = 1 - N1_right
-            pgr1_right, pgr2_right = getPCG(
-                r1, r2,
-                a11, a12,
-                a21, a22,
-                N1_right, N2_right
-            )
-            right_PGR1_dominant = int(pgr1_right > pgr2_right) if not (
-                np.isnan(pgr1_right) or np.isnan(pgr2_right)) else np.nan
-            curve_cross = int(left_PGR1_dominant != right_PGR1_dominant)
-            freqs = np.linspace(0, 1, 100)
-            pgr1, pgr2 = [], []
-            for f in freqs:
-                if f in (0, 1):
-                    f = max(min(f, 1 - 1e-9), 1e-9)
-                N1, N2 = f, 1 - f
-                pgri, pgrj = getPCG(
-                    r1, r2,
-                    a11, a12,
-                    a21, a22,
-                    N1, N2
-                )
-                pgr1.append(pgri if not np.isnan(pgri) else np.nan)
-                pgr2.append(pgrj if not np.isnan(pgrj) else np.nan)
+            r1, r2 = row['r1'], row['r2']
+            a11, a12, a21, a22 = row['a11'], row['a12'], row['a21'], row['a22']
+            # Calculate competitor density function
+            def getEqDensity(focal_species, N_focal):
+                if focal_species == 0:  # Species 1 is focal
+                    return max(0, (r2 - 1 - a21 * N_focal) / a22) if a22 != 0 else 0
+                else:  # Species 2 is focal
+                    return max(0, (r1 - 1 - a12 * N_focal) / a11) if a11 != 0 else 0
+            # Left edge: species 1 rare, species 2 common
+            N1_left = lowN
+            N2_left = getEqDensity(0, N1_left)
+            total_left = N1_left + N2_left
+            freq1_left = N1_left / total_left if total_left > 0 else 0
+            pgr1_left, pgr2_left = getPCG(r1, r2, a11, a12, a21, a22, N1_left, N2_left)
+            left_PGR1_dominant = 1 if pgr1_left > pgr2_left else 0
+            # Right edge: species 2 rare, species 1 common
+            N2_right = lowN
+            N1_right = getEqDensity(1, N2_right)
+            total_right = N1_right + N2_right
+            freq1_right = N1_right / total_right if total_right > 0 else 0
+            freq2_right = N2_right / total_right if total_right > 0 else 0  # ADDED: Frequency of N2
+            pgr1_right, pgr2_right = getPCG(r1, r2, a11, a12, a21, a22, N1_right, N2_right)
+            right_PGR1_dominant = 1 if pgr1_right > pgr2_right else 0
+            curve_cross = 1 if left_PGR1_dominant != right_PGR1_dominant else 0
+            # Species 1 NFD analysis
+            N1_high = lowN + deltaN
+            N2_high = getEqDensity(0, N1_high)
+            total_high = N1_high + N2_high
+            freq1_high = N1_high / total_high if total_high > 0 else 0
+            pgr1_high, _ = getPCG(r1, r2, a11, a12, a21, a22, N1_high, N2_high)
+            NFD1 = - (pgr1_high - pgr1_left) / (freq1_high - freq1_left) if (freq1_high - freq1_left) != 0 else np.nan
+            # Species 2 NFD analysis
+            N2_high2 = lowN + deltaN
+            N1_high2 = getEqDensity(1, N2_high2)
+            total_high2 = N1_high2 + N2_high2
+            freq2_high = N2_high2 / total_high2 if total_high2 > 0 else 0
+            _, pgr2_high = getPCG(r1, r2, a11, a12, a21, a22, N1_high2, N2_high2)
+            # Corrected: Use freq2_right and freq2_high for N2's frequency
+            NFD2 = - (pgr2_high - pgr2_right) / (freq2_high - freq2_right) if (freq2_high - freq2_right) != 0 else np.nan
+            # Write to summary
             csv_line = (
-                f"{r1},{r2},"
-                f"{a11},{a12},"
-                f"{a21},{a22},"
-                f"{row['cor_sos']},{row['nu_sign']},"
-                f"{row['Coexist']},{left_PGR1_dominant},"
-                f"{right_PGR1_dominant},{curve_cross}\n"
+                f"{r1},{r2},{a11},{a12},{a21},{a22},"
+                f"{row['cor_sos']},{row['nu_sign']},{row['Coexist']},"
+                f"{left_PGR1_dominant},{right_PGR1_dominant},{curve_cross}\n"
             )
             with open(summary_path, 'a') as f:
                 f.write(csv_line)
-            fig = plt.figure(figsize=(8,6))
-            try:
-                ax = fig.add_subplot(111)
-                ax.plot(freqs, pgr1, '-', label='N1')
-                ax.plot(freqs, pgr2, '--', label='N2')
+            # Create plot
+            if save_fig:
+                fig, ax = plt.subplots(figsize=(10, 6))
+                # Species 1: Uses freq of N1
+                ax.plot([freq1_left, freq1_high], [pgr1_left, pgr1_high], 'o-', color='blue', label='N1')
+                # Species 2: Uses freq of N2 (corrected)
+                ax.plot([freq2_right, freq2_high], [pgr2_right, pgr2_high], 's--', color='orange', label='N2')
+                ax.axhline(0, color='black', linestyle=':', linewidth=0.8)
                 ax.set_xlabel("Frequency")
                 ax.set_ylabel("log(PGR)")
                 ax.set_title(
                     f"\u03BD={row['cor_sos']:.2g}, Coexist={row['Coexist']}\n"
-                    f"r1={r1} a11={a11} a12={a12}  "
+                    f"r1={r1} a11={a11} a12={a12}\n"
                     f"r2={r2} a21={a21} a22={a22}"
                 )
-                ax.axhline(0, linestyle=':', linewidth=0.8)
                 ax.legend()
-                if save_fig:
-                    os.makedirs('png', exist_ok=True)
-                    fname = (f"png/r1_{r1}_r2_{r2}_a11_{a11}_a12_{a12}_a21_{a21}_a22_{a22}.png")
-                    fig.savefig(fname, dpi=150, bbox_inches='tight')
-            finally:
+                os.makedirs('png', exist_ok=True)
+                fname = f"png/r1_{r1}_r2_{r2}_a11_{a11}_a12_{a12}_a21_{a21}_a22_{a22}.png"
+                fig.savefig(fname, dpi=150, bbox_inches='tight')
                 plt.close(fig)
-                del ax, fig, freqs, pgr1, pgr2
                 gc.collect()
+        # Analysis report remains unchanged
+        print("\n=== Analysis Report ===")
+        summary_df = pd.read_csv(summary_path)
+        print("\nEdge Dominance Statistics:")
+        for sign in ['negative', 'zero', 'positive']:
+            sign_df = summary_df[summary_df.nu_sign == sign]
+            if sign_df.empty:
+                continue
+            print(f"\n\u03BD {sign.capitalize()} (N={len(sign_df)}):")
+            print(f"Left edge N1 wins:  {sign_df.left_PGR1_dominant.mean():.1%}")
+            print(f"Right edge N1 wins: {sign_df.right_PGR1_dominant.mean():.1%}")
+        print("\nCoexistence Distribution:")
+        print(pd.crosstab(
+            index=summary_df.nu_sign,
+            columns=summary_df.coexist,
+            margins=True,
+            margins_name="Total"
+        ))
     except Exception as e:
         print(f"Analysis failed: {str(e)}")
 
+
+# def plot_pgr_figures(filter_option, save_fig=False, extinc_crit_1=False):
+#     plt.rcParams.update({
+#         'axes.titlesize': 14,
+#         'axes.labelsize': 18,
+#         'xtick.labelsize': 16,
+#         'ytick.labelsize': 16,
+#         'legend.fontsize': 12,
+#         'font.size': 18,
+#         'lines.linewidth': 1.5
+#     })
+#     summary_path = f"csv/pgr_analysis_summary_{filter_option}.csv"
+#     cols = [
+#         'k', 'r1', 'r2', 'a11', 'a12', 'a21', 'a22',
+#         'cor_sos', 'nu_sign', 'coexist',
+#         'left_PGR1_dominant', 'right_PGR1_dominant', 'curve_cross'
+#     ]
+#     with open(summary_path, 'w') as f:
+#         f.write(','.join(cols) + '\n')
+#     try:
+#         df = pd.read_csv(f"csv/annplant_2spp_det_rare_filtered_{filter_option}.csv")
+#         df['cor_sos'] = pd.to_numeric(df['cor_sos'], errors='coerce')
+#         df['Coexist'] = pd.to_numeric(df['Coexist'], errors='coerce').fillna(0).astype(int)
+#         conditions = [
+#             df['cor_sos'] < -0.001,
+#             df['cor_sos'].abs() <= 0.001,
+#             df['cor_sos'] > 0.001
+#         ]
+#         df['nu_sign'] = np.select(conditions, ['negative', 'zero', 'positive'], default='invalid')
+#         k_values = [0.25] # , 0.5, 0.75
+#         for idx, row in df.iterrows():
+#             if row['nu_sign'] == 'invalid':
+#                 continue
+#             for k in k_values:
+#                 # Edge dominance
+#                 N1_left = 1e-9
+#                 N2_left = 1 - N1_left
+#                 pgr1_left, pgr2_left = getPCG(
+#                     row['r1'], row['r2'],
+#                     row['a11'], row['a12'],
+#                     row['a21'], row['a22'],
+#                     N1_left, N2_left
+#                 )
+#                 left_PGR1_dominant = int(pgr1_left > pgr2_left) if not (
+#                     np.isnan(pgr1_left) or np.isnan(pgr2_left)) else np.nan
+#                 N1_right = 1.0 - 1e-9
+#                 N2_right = 1 - N1_right
+#                 pgr1_right, pgr2_right = getPCG(
+#                     row['r1'], row['r2'],
+#                     row['a11'], row['a12'],
+#                     row['a21'], row['a22'],
+#                     N1_right, N2_right
+#                 )
+#                 right_PGR1_dominant = int(pgr1_right > pgr2_right) if not (
+#                     np.isnan(pgr1_right) or np.isnan(pgr2_right)) else np.nan
+#                 curve_cross = int(left_PGR1_dominant != right_PGR1_dominant)
+#                 # Frequency sweep (N1 + N2 = 1)
+#                 freqs = np.linspace(0, 1, 100)
+#                 pgr1, pgr2 = [], []
+#                 for f in freqs:
+#                     if f == 0 or f == 1:
+#                         f = max(min(f, 1 - 1e-9), 1e-9)
+#                     N1 = f
+#                     N2 = 1 - f
+#                     pgri, pgrj = getPCG(
+#                         row['r1'], row['r2'],
+#                         row['a11'], row['a12'],
+#                         row['a21'], row['a22'],
+#                         N1, N2
+#                     )
+#                     pgr1.append(pgri if not np.isnan(pgri) else np.nan)
+#                     pgr2.append(pgrj if not np.isnan(pgrj) else np.nan)
+#                 csv_line = (
+#                     f"{k},{row['r1']},{row['r2']},"
+#                     f"{row['a11']},{row['a12']},"
+#                     f"{row['a21']},{row['a22']},"
+#                     f"{row['cor_sos']},{row['nu_sign']},"
+#                     f"{row['Coexist']},{left_PGR1_dominant},{right_PGR1_dominant},{curve_cross}\n"
+#                 )
+#                 with open(summary_path, 'a') as f:
+#                     f.write(csv_line)
+#                 fig = plt.figure(figsize=(10,6))
+#                 try:
+#                     ax = fig.add_subplot(111)
+#                     ax.plot(freqs, pgr1, '-', color='blue', label='N1')
+#                     ax.plot(freqs, pgr2, '--', color='orange', label='N2')
+#                     ax.set_xlabel("Frequency of N1")
+#                     ax.set_ylabel("log(PGR)")
+#                     ax.set_title(
+#                         f"\u03BD={row['cor_sos']:.2g}, "
+#                         f"Coexist={row['Coexist']},\n" # , k={k}
+#                         f"r1={row['r1']} a11={row['a11']} a12={row['a12']}\n"
+#                         f"r2={row['r2']} a21={row['a21']} a22={row['a22']}"
+#                     )
+#                     ax.axhline(0, color='black', linestyle=':', linewidth=0.8)
+#                     ax.legend()
+#                     fname = (
+#                         f"png/r1_{row['r1']}_r2_{row['r2']}_"
+#                         f"a11_{row['a11']}_a12_{row['a12']}_"
+#                         f"a21_{row['a21']}_a22_{row['a22']}.png" # _pgr_k_{k}_freq
+#                     )
+#                     if save_fig:
+#                         os.makedirs('png', exist_ok=True)
+#                         fig.savefig(fname, dpi=150, bbox_inches='tight')
+#                 finally:
+#                     plt.close(fig)
+#                     ax.remove()
+#                     del ax, fig, freqs, pgr1, pgr2
+#                     gc.collect()
+#         print("\n=== Analysis Report ===")
+#         summary_df = pd.read_csv(summary_path)
+#         print("\nEdge Dominance Statistics:")
+#         for sign in ['negative', 'zero', 'positive']:
+#             sign_df = summary_df[summary_df.nu_sign == sign]
+#             if sign_df.empty:
+#                 continue
+#             print(f"\n\u03BD {sign.capitalize()} (N={len(sign_df)}):")
+#             print(f"Left edge N1 wins:  {sign_df.left_PGR1_dominant.mean():.1%}")
+#             print(f"Right edge N1 wins: {sign_df.right_PGR1_dominant.mean():.1%}")
+#         print("\nCoexistence Distribution:")
+#         print(pd.crosstab(
+#             index=summary_df.nu_sign,
+#             columns=summary_df.coexist,
+#             margins=True,
+#             margins_name="Total"
+#         ))
+#     except Exception as e:
+#         print(f"Analysis failed: {str(e)}")
 
 # def analyze_hypotheses_descriptive(filter_option, summary_path):
 #     df = pd.read_csv(summary_path)
@@ -852,8 +869,8 @@ def analyze_coexistence_deterministic(filter_option):
         total = s1.iloc[i]['count']
         p_co = s1.iloc[i]['p_co']
         p_no = s1.iloc[i]['p_no']
-        sum_co = s1.iloc[i]['sum']
-        sum_no = total - sum_co
+        sum_co = int(s1.iloc[i]['sum'])
+        sum_no = int(total - sum_co)
         # Coexist segment
         ax.text(i, p_co/2, f"{p_co:.1%}\n({sum_co})",  # :.0g
                 ha='center', va='center', color='white', fontsize=8)
@@ -866,6 +883,7 @@ def analyze_coexistence_deterministic(filter_option):
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0%}"))
     ax.legend(loc='upper right', bbox_to_anchor=(1, 1))
     plt.tight_layout()
+    os.makedirs('img', exist_ok=True)
     plt.savefig(f'img/hypothesis_1_{filter_option}.png', dpi=300)
     plt.close()
     # 2. Coexistence vs nu sign
@@ -881,8 +899,8 @@ def analyze_coexistence_deterministic(filter_option):
         total = s2.iloc[i]['count']
         p_co = s2.iloc[i]['p_co']
         p_no = s2.iloc[i]['p_no']
-        sum_co = s2.iloc[i]['sum']
-        sum_no = total - sum_co
+        sum_co = int(s2.iloc[i]['sum'])
+        sum_no = int(total - sum_co)
         ax.text(i, p_co/2, f"{p_co:.1%}\n({sum_co})",  # :.0g
                 ha='center', va='center', color='white', fontsize=8)
         ax.text(i, p_co + p_no/2, f"{p_no:.1%}\n({sum_no})",  # :.0g
@@ -912,8 +930,8 @@ def analyze_coexistence_deterministic(filter_option):
             total = s3.iloc[j]['count']
             p_co = s3.iloc[j]['p_co']
             p_no = s3.iloc[j]['p_no']
-            sum_co = s3.iloc[j]['sum']
-            sum_no = total - sum_co
+            sum_co = int(s3.iloc[j]['sum'])
+            sum_no = int(total - sum_co)
             ax.text(j, p_co/2, f"{p_co:.1%}\n({sum_co})",  # :.0g
                     ha='center', va='center', color='white', fontsize=8)
             ax.text(j, p_co + p_no/2, f"{p_no:.1%}\n({sum_no})",  # :.0g
@@ -959,29 +977,17 @@ def analyze_coexistence_deterministic(filter_option):
     plt.savefig(f'img/coexistence_heatmap_{filter_option}.png', dpi=300)
     plt.close()
     # 5. Core Analysis Tables
-    analysis_data = df.groupby(
-        ['nu_sign', 'curve_cross', 'left_PGR1_dominant', 'coexist']
-    ).size().unstack(fill_value=0)
+    analysis_data = df.groupby(['nu_sign', 'curve_cross', 'coexist']).size().unstack().fillna(0)
     analysis_data['Total'] = analysis_data.sum(axis=1)
-    # Ensure consistent ordering
-    index = pd.MultiIndex.from_product(
-        [nu_order, [0, 1], [0, 1]],
-        names=['\u03BD Sign', 'Curve Cross', 'Left N1 Dominant']
-    )
-    analysis_data = analysis_data.reindex(index, fill_value=0)
-    total_all = analysis_data['Total'].sum()
-    formatted = analysis_data.copy()
-    for col in [0, 1]:
-        formatted[col] = (
-            analysis_data[col] / total_all
-        ).map("{:.1%}".format) + " (" + analysis_data[col].astype(int).astype(str) + ")"
-    formatted.to_csv(f'csv/coexistence_output_{filter_option}.csv')
+    analysis_data = analysis_data.reindex(pd.MultiIndex.from_product(
+        [nu_order, [0, 1]],
+        names=['\u03BD Sign', 'Curve Cross']
+    ))
     print("\n=== Coexistence Analysis ===")
-    print(formatted.to_string())
+    print(analysis_data.astype(int).to_string())
 
 
 def setup_pipeline(filters, base_file, solver, truncate, save_fig, extinc_crit_1):
-    os.makedirs('img', exist_ok=True)
     os.makedirs('csv', exist_ok=True)
     warnings.filterwarnings("ignore")
     if not os.path.exists(base_file):

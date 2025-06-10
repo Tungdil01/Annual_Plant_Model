@@ -20,6 +20,7 @@
 #
 # #### Author's original code: https://github.com/gmyenni/RareStabilizationSimulation
 
+import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -182,6 +183,7 @@ def postprocess_results(results, outfile):
     simul.to_csv(outfile, index=False)
 
 if __name__ == "__main__":
+    os.makedirs('csv', exist_ok=True)
     outfile = "csv/annplant_2spp_det_rare.csv"
     mesh = preprocess_data()
     results = np.empty((len(mesh), 17), dtype=float)
@@ -254,10 +256,15 @@ def main():
     data_grid = preprocess_data()
     simulations = np.array([Sim(k, row) for k, row in enumerate(data_grid)])
     postprocess_results(simulations, output_file)
-    cor_figure() # apply filters
-    print("Original Results by Yenni et al.")
-    analyze_coexistence_effect("csv/annplant_2spp_det_rare.txt")
+    cor_figure()  # apply filters
+    yenni_file = "csv/annplant_2spp_det_rare.txt"
+    if os.path.exists(yenni_file):
+        print("Original Results by Yenni et al. (2012)")
+        analyze_coexistence_effect(yenni_file)
+    else:
+        print(f"File not found: {os.path.abspath(yenni_file)}. To include original Yenni et al. (2012) results, please copy 'annplant_2spp_det_rare.txt' into this directory. Skipping.")
     print("\nReproduction of the Authors' Results")
+    print("\nFigures Examples:")
     analyze_coexistence_effect(output_file)
     example_parameters()
 
