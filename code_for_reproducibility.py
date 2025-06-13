@@ -21,15 +21,12 @@
 # #### Author's original code: https://github.com/gmyenni/RareStabilizationSimulation
 
 import os
+import warnings
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 from statsmodels.stats.proportion import proportion_confint
-from scipy import stats
-from scipy.stats import ttest_ind
-from datetime import datetime
-import warnings
 
 
 # # analyN_function.r

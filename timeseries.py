@@ -23,35 +23,15 @@
 
 # ## Packages
 
-# +
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 from numba import jit
 
-# from jupyterthemes import get_themes
-# import jupyterthemes as jt
-# from jupyterthemes.stylefx import set_nb_theme
-# set_nb_theme('onedork') #grade3
-# -
-
 # Dummy plot
 fig, ax = plt.subplots(figsize=(0.1, 0.1))
 ax.axhline(y=1, color='grey', linestyle='--')
 plt.rcParams.update({'font.size': 30})
-
-# ## Initialization
-
-# +
-# Variables for the per capita growth rate
-tmax = 2
-time = np.linspace(1,tmax,tmax)
-
-y1 = np.zeros(tmax)
-y2 = np.zeros(tmax)
-per_capita1 = np.zeros(tmax)
-per_capita2 = np.zeros(tmax)
-# -
 
 # ## Parameters
 
@@ -100,16 +80,7 @@ print('SoS_1='+str(SoS_1)+',SoS_2='+str(SoS_2))
 
 @jit(nopython=True)
 def time_simul(y01, y02, r1, r2, a11, a22, a12, a21):
-    """Simulate the dynamics of two species over time.
-    
-    Args:
-        y01, y02 (float): Initial abundances of species 1 and 2.
-        r1, r2 (float): Intrinsic growth rates for species 1 and 2.
-        a11, a12, a21, a22 (float): Interaction coefficients between species.
-        
-    Returns:
-        tuple: Arrays of abundances for species 1 and 2 over time.
-    """
+    """Simulate the dynamics of two species over time with adaptive tmax."""
     y1 = np.array([5.0], dtype=np.float64)
     y2 = np.array([5.0], dtype=np.float64)
     stop_run = False
@@ -132,10 +103,8 @@ def time_simul(y01, y02, r1, r2, a11, a22, a12, a21):
 
 def plot_dynamics(y01, y02, r1, r2, a11, a12, a21, a22, focal_species=None, fixed_species=None):
     y1, y2 = time_simul(y01, y02, r1, r2, a11, a22, a12, a21)
-
     tmax = len(y1)
     time = np.linspace(1, tmax, tmax)
-
     # Plotting N_t
     fig, ax = plt.subplots(1, figsize=(12, 8))
     ax.plot(time, y1, alpha=0.5, marker="o", linewidth=10, markersize=12, color="blue", label='$N_{1}$')
@@ -152,9 +121,11 @@ def plot_dynamics(y01, y02, r1, r2, a11, a12, a21, a22, focal_species=None, fixe
 
 # +
 def main():
-    y01, y02 = 5, 5
-    y1[0], y2[0] = y01, y02 # initial conditions
-
+    # Initialize
+    tmax = 2 # the code automatically adapts the tmax
+    y1, y2 = np.zeros(tmax), np.zeros(tmax)
+    y01, y02 = 5, 5 # initial conditions
+    y1[0], y2[0] = y01, y02
     # Plot Two Species Dynamics
     plot_dynamics(y01, y02, r1, r2, a11, a12, a21, a22)
 
