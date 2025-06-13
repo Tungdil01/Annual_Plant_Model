@@ -122,17 +122,13 @@ def plot_frequency_PGR(freq1, pgr1, freq2, pgr2, r1, r2, a11, a12, a21, a22, cor
     fig = plt.figure(figsize=(8, 4))
     ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
     ax.axhline(0, color='black', linestyle=':', linewidth=0.8)
-    ax.plot(freq1, pgr1, label='Species 1', linestyle='-')
-    ax.plot(freq2, pgr2, label='Species 2', linestyle='--')
+    ax.plot(freq1, pgr1, label='N1', linestyle='-')
+    ax.plot(freq2, pgr2, label='N2', linestyle='--')
     ax.set_xlabel('Frequency', fontsize=16)
     ax.set_ylabel('log(PGR)', fontsize=16)
     ax.set_xlim(-0.005, 1.01)
     ax.set_ylim(-1.01, 1.01)
-    ax.set_title(
-        f"r1={r1:.2g}, r2={r2:.2g}, a11={a11:.2g}, a12={a12:.2g}, "
-        f"a21={a21:.2g}, a22={a22:.2g}, \u03BD={cor:.2g}",
-        fontsize=14, wrap=True
-    )
+    ax.set_title(f"r1={r1:.2g}, r2={r2:.2g}, a11={a11:.2g}, a12={a12:.2g}, a21={a21:.2g}, a22={a22:.2g}, \u03BD={cor:.2g}", fontsize=14, wrap=True)
     ax.legend(fontsize=12)
     plt.tight_layout()
     plt.show()
@@ -141,13 +137,13 @@ def example_parameters():
     param_sets = [
         (15, 15, 2.5, 0.1, 0.5, 0.7),
         (15, 15, 2.5, 0.1, 0.5, 0.5),
-        (15, 15, 2.5, 0.1, 0.3, 0.3),
+        (15, 15, 2.5, 0.1, 0.3, 0.3)
     ]
     lowN, highN = 0.001, 100
     for idx, (r1, r2, a11, a12, a21, a22) in enumerate(param_sets, start=1):
         # compute equilibrium densities
         N1, N2 = analyN(r1, r2, a11, a12, a21, a22)
-        # extract correlation \u03BD from metrics
+        # extract correlation nu from metrics
         _, _, _, _, _, _, cor, _, _ = calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2)
         # compute low- and high-density PGR and frequencies
         nfd = getNFD(r1, r2, a11, a12, a21, a22, lowN, highN)
