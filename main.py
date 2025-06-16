@@ -717,8 +717,8 @@ def analyze_coexistence_deterministic(filter_option):
     s1['p_no'] = 1 - s1['p_co']
     fig, ax = plt.subplots(figsize=(6, 4))
     x = np.arange(len(s1))
-    ax.bar(x, s1['p_co'], color='blue', label='Coexist')
-    ax.bar(x, s1['p_no'], bottom=s1['p_co'], color='red', label='Non-coexist')
+    ax.bar(x, s1['p_co'], color='blue', label='Coexistence')
+    ax.bar(x, s1['p_no'], bottom=s1['p_co'], color='red', label='Extinction')
     # Annotate each segment
     for i in x:
         total = s1.iloc[i]['count']
@@ -726,11 +726,11 @@ def analyze_coexistence_deterministic(filter_option):
         p_no = s1.iloc[i]['p_no']
         sum_co = int(s1.iloc[i]['sum'])
         sum_no = int(total - sum_co)
-        # Coexist segment
-        ax.text(i, p_co/2, f"{p_co:.1%}\n({sum_co})",  # :.0g
+        # Coexistence segment
+        ax.text(i, p_co/2, f"{p_co:.1%}\n({sum_co})", 
                 ha='center', va='center', color='white', fontsize=8)
-        # Non-coexist segment
-        ax.text(i, p_co + p_no/2, f"{p_no:.1%}\n({sum_no})",  # :.0g
+        # Extinction segment
+        ax.text(i, p_co + p_no/2, f"{p_no:.1%}\n({sum_no})", 
                 ha='center', va='center', color='white', fontsize=8)
     ax.set_xticks(x)
     ax.set_xticklabels(cross_labels)
@@ -747,8 +747,8 @@ def analyze_coexistence_deterministic(filter_option):
     s2['p_no'] = 1 - s2['p_co']
     fig, ax = plt.subplots(figsize=(6, 4))
     x = np.arange(len(s2))
-    ax.bar(x, s2['p_co'], color='blue', label='Coexist')
-    ax.bar(x, s2['p_no'], bottom=s2['p_co'], color='red', label='Non-coexist')
+    ax.bar(x, s2['p_co'], color='blue', label='Coexistence')
+    ax.bar(x, s2['p_no'], bottom=s2['p_co'], color='red', label='Extinction')
     # Annotate each segment
     for i in x:
         total = s2.iloc[i]['count']
@@ -756,9 +756,9 @@ def analyze_coexistence_deterministic(filter_option):
         p_no = s2.iloc[i]['p_no']
         sum_co = int(s2.iloc[i]['sum'])
         sum_no = int(total - sum_co)
-        ax.text(i, p_co/2, f"{p_co:.1%}\n({sum_co})",  # :.0g
+        ax.text(i, p_co/2, f"{p_co:.1%}\n({sum_co})", 
                 ha='center', va='center', color='white', fontsize=8)
-        ax.text(i, p_co + p_no/2, f"{p_no:.1%}\n({sum_no})",  # :.0g
+        ax.text(i, p_co + p_no/2, f"{p_no:.1%}\n({sum_no})", 
                 ha='center', va='center', color='white', fontsize=8)
     ax.set_xticks(x)
     ax.set_xticklabels([nu_symbols[nu] for nu in nu_order])
@@ -787,9 +787,9 @@ def analyze_coexistence_deterministic(filter_option):
             p_no = s3.iloc[j]['p_no']
             sum_co = int(s3.iloc[j]['sum'])
             sum_no = int(total - sum_co)
-            ax.text(j, p_co/2, f"{p_co:.1%}\n({sum_co})",  # :.0g
+            ax.text(j, p_co/2, f"{p_co:.1%}\n({sum_co})", 
                     ha='center', va='center', color='white', fontsize=8)
-            ax.text(j, p_co + p_no/2, f"{p_no:.1%}\n({sum_no})",  # :.0g
+            ax.text(j, p_co + p_no/2, f"{p_no:.1%}\n({sum_no})", 
                     ha='center', va='center', color='white', fontsize=8)
         ax.set_xticks(x_sub)
         ax.set_xticklabels(cross_labels)
@@ -797,7 +797,7 @@ def analyze_coexistence_deterministic(filter_option):
         if ax == axes[0]:
             ax.set_ylabel("Percentage")
     handles = [plt.Rectangle((0,0),1,1, color=c, edgecolor='k') for c in ['blue', 'red']]
-    fig.legend(handles, ['Coexist', 'Non-coexist'], loc='upper right', bbox_to_anchor=(0.99, 0.99))
+    fig.legend(handles, ['Coexistence', 'Extinction'], loc='upper right', bbox_to_anchor=(0.99, 0.99))
     plt.tight_layout()
     plt.savefig(f'img/hypothesis_3_{filter_option}.png', dpi=300)
     plt.close()
@@ -811,8 +811,9 @@ def analyze_coexistence_deterministic(filter_option):
     co_mat = heat['coexist'].unstack().reindex(index=nu_order, columns=[0, 1]).fillna(0)
     pct_mat = co_mat / total_mat.replace(0, np.nan)
     # Create annotation text: coexist/total (pct%)
-    annot = (co_mat.astype(int).astype(str) + "/" + total_mat.astype(int).astype(str) + 
-             "\n(" + (pct_mat * 100).round(1).astype(str) + "%)").values
+    annot = (co_mat.astype(int).astype(str) + "/" + total_mat.astype(int).astype(str) + \
+            "\n(" + (pct_mat * 100).round(1).astype(str) + "%)")
+    annot = annot.values
     fig, ax = plt.subplots(figsize=(6, 5))
     sns.heatmap(
         pct_mat,
@@ -833,21 +834,26 @@ def analyze_coexistence_deterministic(filter_option):
     plt.close()
     # 5. Core Analysis Tables
     analysis_data = df.groupby(
-        ['nu_sign', 'curve_cross', 'left_PGR1_dominant', 'coexist']
+        ['left_PGR1_dominant', 'nu_sign', 'coexist']
     ).size().unstack(fill_value=0)
     analysis_data['Total'] = analysis_data.sum(axis=1)
-    # Ensure consistent ordering
+    analysis_data = analysis_data.rename(columns={0: 'Exclusion', 1: 'Coexistence'})
     index = pd.MultiIndex.from_product(
-        [nu_order, [0, 1], [0, 1]],
-        names=['\u03BD Sign', 'Curve Cross', 'Left N1 Dominant']
+        [[0, 1], nu_order],
+        names=['PGR Left Dominance', '\u03BD Sign']
     )
     analysis_data = analysis_data.reindex(index, fill_value=0)
-    total_all = analysis_data['Total'].sum()
+    analysis_data = analysis_data.rename(
+        index={0: 'N1 Non-dominant', 1: 'N1 Dominant'},
+        level='PGR Left Dominance'
+    )
+    # format percentages so that Exclusion + Coexistence = 100% per row
     formatted = analysis_data.copy()
-    for col in [0, 1]:
+    for col in ['Exclusion', 'Coexistence']:
         formatted[col] = (
-            analysis_data[col] / total_all
+            analysis_data[col] / analysis_data['Total']
         ).map("{:.1%}".format) + " (" + analysis_data[col].astype(int).astype(str) + ")"
+    formatted['Total'] = analysis_data['Total']
     formatted.to_csv(f'csv/coexistence_output_{filter_option}.csv')
     print("\n=== Coexistence Analysis ===")
     print(formatted.to_string())
@@ -890,7 +896,7 @@ def setup_pipeline(filters, base_file, solver, truncate, save_fig, extinc_crit_1
 def main():
     filters = ['on', 'off']
     base_file = "csv/annplant_2spp_det_rare.csv"
-    solver = 'dynamics' # 'analyN'
+    solver = 'analyN' # 'dynamics' # 
     truncate = False
     save_fig = True
     extinc_crit_1 = False

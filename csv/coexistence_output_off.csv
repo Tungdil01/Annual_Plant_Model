@@ -1,13 +1,7 @@
-ν Sign,Curve Cross,Left N1 Dominant,0,1,Total
-negative,0,0,0.2% (104),1.4% (664),768
-negative,0,1,0.9% (397),0.4% (203),600
-negative,1,0,0.2% (85),0.4% (174),259
-negative,1,1,0.0% (0),1.5% (693),693
-zero,0,0,0.1% (46),0.7% (304),350
-zero,0,1,0.0% (0),0.0% (0),0
-zero,1,0,0.0% (6),0.5% (214),220
-zero,1,1,0.0% (0),0.0% (0),0
-positive,0,0,43.9% (20215),43.0% (19784),39999
-positive,0,1,0.2% (73),0.1% (55),128
-positive,1,0,1.6% (730),4.5% (2091),2821
-positive,1,1,0.0% (0),0.4% (177),177
+PGR Left Dominance,ν Sign,Exclusion,Coexistence,Total
+N1 Non-dominant,negative,13.5% (88),86.5% (566),654
+N1 Non-dominant,zero,5.4% (30),94.6% (527),557
+N1 Non-dominant,positive,60.4% (17695),39.6% (11601),29296
+N1 Dominant,negative,68.5% (5695),31.5% (2615),8310
+N1 Dominant,zero,71.4% (15),28.6% (6),21
+N1 Dominant,positive,22.9% (76),77.1% (256),332
