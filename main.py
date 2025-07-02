@@ -103,7 +103,7 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True):
     if extinc_crit_1:
         Coexist = 0 if N1 < 1 or N2 < 1 else 1
     else:
-        Coexist = 0 if N1 < 1.0e-6 or N2 < 1.0e-6 else 1
+        Coexist = 0 if N1 < 0.05 or N2 < 0.05 else 1
     return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D}
 
 

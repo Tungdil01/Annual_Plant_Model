@@ -46,7 +46,7 @@ def SOS(r1, r2, a11, a12, a21, a22):
     return S1, S2
 
 
-def check_coexistence(r1, r2, a11, a12, a21, a22, eps=5.0e-2):
+def check_coexistence(r1, r2, a11, a12, a21, a22, eps=0.05):
     E1 = (r1 - 1) / a11
     E2 = (r2 - 1) / a22
     P  = (r1 - 1) / a12
@@ -92,19 +92,7 @@ def compute_logPGR(r, Ntot_star, a_ii, a_ij, F_array):
     return np.log(r) - np.log(1.0 + Ntot_star*(a_ii*F_array + a_ij*(1.0 - F_array)))
 
 
-def setup_plot_style():
-    plt.rcParams.update({
-        'axes.titlesize': 14,
-        'axes.labelsize': 18,
-        'xtick.labelsize':16,
-        'ytick.labelsize':16,
-        'legend.fontsize':12,
-        'font.size':18,
-        'lines.linewidth':1.5
-    })
-
-
-def plot_and_save(F, logPGR1, logPGR2, F1_star, nu, coexist, params, S1, S2, save_fig, eps=1e-3):
+def PGR_dominance(F, logPGR1, logPGR2, F1_star, nu, coexist, params, S1, S2, eps=1e-3):
     # Unpack parameters
     r1, r2, a11, a12, a21, a22, N1_eq, N2_eq = params
     # Determine rare/common species at leftmost frequency (F=0)
@@ -124,29 +112,6 @@ def plot_and_save(F, logPGR1, logPGR2, F1_star, nu, coexist, params, S1, S2, sav
         left_flag = 1 if logPGR2[0] > logPGR1[0] else (-1 if logPGR2[0] < logPGR1[0] else 0)
     # nu_sign: -1, 0, or 1
     nu_sign = -1 if nu < -eps else 1 if nu > eps else 0
-    if save_fig:
-        # classify nu category
-        if nu_sign < 0: nu_dir = "nu_negative"
-        elif nu_sign > 0: nu_dir = "nu_positive"
-        else:             nu_dir = "nu_zero"
-        subdir = "coexistence" if coexist == 1 else "exclusion"
-        outdir = os.path.join(nu_dir, subdir)
-        os.makedirs(outdir, exist_ok=True)
-        plt.figure()
-        plt.plot(F, logPGR1, label='N1')
-        plt.plot(F, logPGR2, linestyle='--', label='N2')
-        plt.axhline(0, color='grey', linestyle='--')
-        plt.axvline(F1_star, linestyle=':')
-        plt.xlim(-0.01, 1.01)
-        plt.ylim(-1.01, 1.01)
-        plt.xlabel('Frequency')
-        plt.ylabel('log(PGR)')
-        plt.legend()
-        plt.title(f"nu={nu:.2g}, coexist={coexist}\nr1={r1}, r2={r2}, a11={a11}, a12={a12}, a21={a21}, a22={a22}")
-        plt.tight_layout()
-        fname = f"r1_{r1}_r2_{r2}_a11_{a11}_a12_{a12}_a21_{a21}_a22_{a22}.png"
-        plt.savefig(os.path.join(outdir, fname))
-        plt.close()
     # Build and return result dictionary
     result_dict = {
         'r1': r1, 'r2': r2, 
@@ -514,7 +479,7 @@ def cor_figure(results, filter_option, truncate=False):
     return filtered_results
 
 
-def process_set(idx, params, F, save_fig):
+def process_set(idx, params, F):
     r1, r2, a11, a12, a21, a22 = params
     S1, S2 = SOS(r1, r2, a11, a12, a21, a22)
     coexist = check_coexistence(r1, r2, a11, a12, a21, a22)
@@ -528,12 +493,10 @@ def process_set(idx, params, F, save_fig):
     logPGR1 = compute_logPGR(r1, Ntot1, a11, a12, F)
     logPGR2 = compute_logPGR(r2, Ntot2, a22, a21, F)
     params_tuple = (r1, r2, a11, a12, a21, a22, N1_eq, N2_eq)
-    return plot_and_save(F, logPGR1, logPGR2, F1_star, nu, coexist, params_tuple, S1, S2, save_fig)
+    return PGR_dominance(F, logPGR1, logPGR2, F1_star, nu, coexist, params_tuple, S1, S2)
 
 
 def main():
-    save_fig = False
-    setup_plot_style()
     F = np.linspace(0, 1, 200)
     mesh = preprocess_data()
     # Process all parameter sets with progress tracking
@@ -541,7 +504,7 @@ def main():
     results = []
     # Create parallel generator
     parallel_generator = Parallel(n_jobs=-1, return_as="generator")(
-        delayed(process_set)(i+1, params, F, save_fig)
+        delayed(process_set)(i+1, params, F)
         for i, params in enumerate(mesh)
     )
     # Process results with tqdm progress bar
