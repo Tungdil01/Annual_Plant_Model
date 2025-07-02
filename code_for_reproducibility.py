@@ -13,9 +13,10 @@
 #     name: python3
 # ---
 
-# ### The code aims to replicate Table 1 of Yenni et al. (2012):
+# ### The code replicates Table 1 of Yenni et al. (2012):
 # #### - keeps the parameters' variations from the code
-# #### - filters S1 >= 1 & S2 >= 1, without it the results do not match
+# #### - restricts S1 >= 1 & S2 >= 1
+# #### - extinction criterion N<1
 # #### - keeps the truncated values
 #
 # #### Author's original code: https://github.com/gmyenni/RareStabilizationSimulation
@@ -90,62 +91,6 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2):
     Rank = 0 if N1 == 0 and N2 == 0 else (2 if N1 / (N1 + N2) <= 0.25 else 1)
     return CoexistRank, E1, S1, E2, S2, Asy, cor, Rare, Rank
 
-def getNFD(r1, r2, a11, a12, a21, a22, lowN, deltaN):
-    # low-density and high-density growth and frequencies
-    N_low_1 = lowN
-    N_low_2 = getEqDensity(1, r1, r2, a11, a12, a21, a22, N_low_1)
-    pgr_low_1, _    = getPCG(r1, r2, a11, a12, a21, a22, N_low_1, N_low_2)
-    freq_low_1      = N_low_1 / (N_low_1 + N_low_2)
-    N_low_2b = lowN
-    N_low_1b = getEqDensity(2, r1, r2, a11, a12, a21, a22, N_low_2b)
-    _, pgr_low_2   = getPCG(r1, r2, a11, a12, a21, a22, N_low_1b, N_low_2b)
-    freq_low_2     = N_low_2b / (N_low_1b + N_low_2b)
-    N_high_1 = lowN + deltaN
-    N_high_2 = getEqDensity(1, r1, r2, a11, a12, a21, a22, N_high_1)
-    pgr_high_1, _   = getPCG(r1, r2, a11, a12, a21, a22, N_high_1, N_high_2)
-    freq_high_1     = N_high_1 / (N_high_1 + N_high_2)
-    N_high_2b = lowN + deltaN
-    N_high_1b = getEqDensity(2, r1, r2, a11, a12, a21, a22, N_high_2b)
-    _, pgr_high_2  = getPCG(r1, r2, a11, a12, a21, a22, N_high_1b, N_high_2b)
-    freq_high_2    = N_high_2b / (N_high_1b + N_high_2b)
-    return {
-        'pgr1': [pgr_low_1, pgr_high_1],
-        'freq1': [freq_low_1, freq_high_1],
-        'pgr2': [pgr_low_2, pgr_high_2],
-        'freq2': [freq_low_2, freq_high_2]
-    }
-
-def plot_frequency_PGR(freq1, pgr1, freq2, pgr2, r1, r2, a11, a12, a21, a22, cor, figure_id):
-    fig = plt.figure(figsize=(8, 4))
-    ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
-    ax.axhline(0, color='black', linestyle=':', linewidth=0.8)
-    ax.plot(freq1, pgr1, label='N1', linestyle='-')
-    ax.plot(freq2, pgr2, label='N2', linestyle='--')
-    ax.set_xlabel('Frequency', fontsize=16)
-    ax.set_ylabel('log(PGR)', fontsize=16)
-    ax.set_xlim(-0.005, 1.01)
-    ax.set_ylim(-1.01, 1.01)
-    ax.set_title(f"r1={r1:.2g}, r2={r2:.2g}, a11={a11:.2g}, a12={a12:.2g}, a21={a21:.2g}, a22={a22:.2g}, \u03BD={cor:.2g}", fontsize=14, wrap=True)
-    ax.legend(fontsize=12)
-    plt.tight_layout()
-    plt.show()
-
-def example_parameters():
-    param_sets = [
-        (15, 15, 2.5, 0.1, 0.5, 0.7),
-        (15, 15, 2.5, 0.1, 0.5, 0.5),
-        (15, 15, 2.5, 0.1, 0.3, 0.3)
-    ]
-    lowN, highN = 0.001, 100
-    for idx, (r1, r2, a11, a12, a21, a22) in enumerate(param_sets, start=1):
-        # compute equilibrium densities
-        N1, N2 = analyN(r1, r2, a11, a12, a21, a22)
-        # extract correlation nu from metrics
-        _, _, _, _, _, _, cor, _, _ = calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2)
-        # compute low- and high-density PGR and frequencies
-        nfd = getNFD(r1, r2, a11, a12, a21, a22, lowN, highN)
-        plot_frequency_PGR(nfd['freq1'], nfd['pgr1'], nfd['freq2'], nfd['pgr2'], r1, r2, a11, a12, a21, a22, cor=cor, figure_id=idx)
-
 
 # -
 
@@ -201,44 +146,63 @@ def cor_figure():
 
 # # figures_det.r
 
-def analyze_coexistence_effect(file_path):
-    dat = pd.read_csv(file_path)
-    # Logistic regression
-    X = sm.add_constant(dat[['S1', 'E1', 'cor']])
+# +
+def perform_logistic_regression(dat):
+    predictors = ['S1', 'E1', 'cor']
+    X = sm.add_constant(dat[predictors])
     y = dat['CoexistRank']
     model = sm.GLM(y, X, family=sm.families.Binomial())
     result = model.fit()
-    print(f"{result.summary()}")
-    # Calculation of proportions and table preparation
-    nu_positive_coexistence = len(dat[(dat['cor'] >= 0) & (dat['CoexistRank'] == 1)])
-    nu_positive_exclusion = len(dat[(dat['cor'] >= 0) & (dat['CoexistRank'] == 0)])
-    nu_negative_coexistence = len(dat[(dat['cor'] < 0) & (dat['CoexistRank'] == 1)])
-    nu_negative_exclusion = len(dat[(dat['cor'] < 0) & (dat['CoexistRank'] == 0)])
+    print(result.summary())
+    return result
+
+def calculate_proportions(dat, correlation_column):
+    proportions = {}
+    proportions[f'positive_coexistence'] = len(dat[(dat[correlation_column] >= 0) & (dat['CoexistRank'] == 1)])
+    proportions[f'positive_exclusion'] = len(dat[(dat[correlation_column] >= 0) & (dat['CoexistRank'] == 0)])
+    proportions[f'negative_coexistence'] = len(dat[(dat[correlation_column] < 0) & (dat['CoexistRank'] == 1)])
+    proportions[f'negative_exclusion'] = len(dat[(dat[correlation_column] < 0) & (dat['CoexistRank'] == 0)])
+    return proportions
+
+def report_coexistence_analysis(proportions, correlation_column):
+    pos_total = proportions['positive_coexistence'] + proportions['positive_exclusion']
+    neg_total = proportions['negative_coexistence'] + proportions['negative_exclusion']
+    neg_confint = proportion_confint(count=proportions['negative_coexistence'], nobs=neg_total, alpha=0.05,  method='wilson')
+    pos_confint = proportion_confint(count=proportions['positive_coexistence'], nobs=pos_total, alpha=0.05,  method='wilson')
+    print(f"\nAnalysis on Negative \u03BD for {correlation_column.upper()}:")
+    print(f"Proportion of coexistence with \u03BD \u2265 0: {proportions['positive_coexistence'] / pos_total:.2g} (95% CI: ({pos_confint[0]:.2g}, {pos_confint[1]:.2g}))")
+    print(f"Proportion of coexistence with \u03BD < 0: {proportions['negative_coexistence'] / neg_total:.2g} (95% CI: ({neg_confint[0]:.2g}, {neg_confint[1]:.2g}))")
+
+def analyze_coexistence_effect(file_path):
+    dat = pd.read_csv(file_path)
+    correlation_column = 'cor'
+    print(f"\n--- Coexistence Analysis ---")
+    # Logistic Regression
+    result = perform_logistic_regression(dat)
+    # Proportion calculations
+    proportions = calculate_proportions(dat, correlation_column)
+    # Create and print table
     table_data = {
-        '\u03BD \u2265 0': [nu_positive_coexistence, nu_positive_exclusion],
-        '\u03BD < 0': [nu_negative_coexistence, nu_negative_exclusion]
+        '\u03BD \u2265 0': [proportions['positive_coexistence'], proportions['positive_exclusion']],
+        '\u03BD < 0': [proportions['negative_coexistence'], proportions['negative_exclusion']]
     }
-    table_df = pd.DataFrame(table_data, index=['coexistence', 'exclusion'])
+    table_df = pd.DataFrame(table_data, index=['Coexistence', 'Exclusion'])
     print("\nCoexistence and Exclusion based on \u03BD:\n", table_df)
-    negative_nu = dat[dat['cor'] < 0]
-    non_negative_nu = dat[dat['cor'] >= 0]
-    negative_nu_coexist = negative_nu[negative_nu['CoexistRank'] == 1]
-    non_negative_nu_coexist = non_negative_nu[non_negative_nu['CoexistRank'] == 1]
-    proportion_negative_nu = len(negative_nu_coexist) / len(negative_nu) if len(negative_nu) > 0 else 0
-    proportion_non_negative_nu = len(non_negative_nu_coexist) / len(non_negative_nu) if len(non_negative_nu) > 0 else 0
-    # Confidence intervals for proportions
-    neg_nu_confint = proportion_confint(count=len(negative_nu_coexist), nobs=len(negative_nu), alpha=0.05, method='wilson')
-    non_neg_nu_confint = proportion_confint(count=len(non_negative_nu_coexist), nobs=len(non_negative_nu), alpha=0.05, method='wilson')
-    print("\nAnalysis on Negative \u03BD:")
-    print(f"Proportion of coexistence with \u03BD < 0: {proportion_negative_nu:.2g} (95% CI: {neg_nu_confint})")
-    print(f"Proportion of coexistence with \u03BD \u2265 0: {proportion_non_negative_nu:.2g} (95% CI: {non_neg_nu_confint})")
-    # Decision based on overlap
-    if neg_nu_confint[1] < non_neg_nu_confint[0]:
-        print(f"The confidence intervals overlap, indicating they are statistically the same, not supporting the authors' results.")
-    elif neg_nu_confint[0] > non_neg_nu_confint[1]:
-        print(f"Higher coexistence observed with \u03BD < 0, supporting the authors' results.")
+    # Report proportions with CI
+    report_coexistence_analysis(proportions, correlation_column)
+    # Confidence intervals for decision logic
+    pos_total = proportions['positive_coexistence'] + proportions['positive_exclusion']
+    neg_total = proportions['negative_coexistence'] + proportions['negative_exclusion']
+    pos_confint = proportion_confint(count=proportions['positive_coexistence'], nobs=pos_total, alpha=0.05, method='wilson')
+    neg_confint = proportion_confint(count=proportions['negative_coexistence'], nobs=neg_total, alpha=0.05, method='wilson')
+    # Decision logic
+    if neg_confint[1] >= pos_confint[0] and neg_confint[0] <= pos_confint[1]:
+        print("The confidence intervals overlap, indicating they are statistically the same, "
+              "not supporting the authors' results.")
+    elif neg_confint[1] > pos_confint[0]:
+        print("Higher coexistence observed with \u03BD < 0, supporting the authors' results.")
     else:
-        print(f"Higher coexistence observed with \u03BD \u2265 0, not supporting the authors' results.")
+        print("Higher coexistence observed with \u03BD \u2265 0, not supporting the authors' results.")
     return result
 
 
@@ -259,7 +223,6 @@ def main():
     print("\nReproduction of the Authors' Results")
     print("\nFigures Examples:")
     analyze_coexistence_effect(output_file)
-    example_parameters()
 
 if __name__ == "__main__":
     main()

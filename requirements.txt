@@ -7,7 +7,7 @@ tqdm==4.66.5
 scikit-learn>=1.5.1
 numba==0.60.0
 joblib==1.4.2
-shap==0.47.2
+#shap==0.47.2
 
 # Jupyter Notebooks
 jupyter==1.1.1
@@ -18,4 +18,4 @@ ipython==8.32.0
 
 # Plotting
 matplotlib==3.9.2
-seaborn==0.13.2
+#seaborn==0.13.2
