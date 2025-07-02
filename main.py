@@ -358,8 +358,7 @@ def main():
     filters = ['on', 'off']
     base_file = "csv/annplant_2spp_det_rare.csv"
     # truncate, extinc_crit_1 = True, True # Yenni et al. (2012) truncate the values and consider extinction N<1
-    truncate, extinc_crit_1 = False, True # the numerical results are slightly different if not truncated
-    # truncate, extinc_crit_1 = False, False # the numerical results are slightly different if not truncated and extinction N<0
+    truncate, extinc_crit_1 = False, False # the numerical results are slightly different if not truncated and extinction N<0
     setup_pipeline(filters, base_file, truncate, extinc_crit_1)
 
 

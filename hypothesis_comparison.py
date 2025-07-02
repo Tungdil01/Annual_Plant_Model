@@ -213,7 +213,7 @@ def compute_rank(result_dict):
 RESULT_KEYS = [ 'r1', 'r2', 'a11', 'a12', 'a21', 'a22', 'N1_eq', 'N2_eq', 'left_PGR1', 'left_PGR2', 'left_flag', 'nu', 'nu_sign', 'coexist', 'S1', 'S2', 'CE1', 'CE2', 'CE_case', 'Rank', 'F1_star' ]
 
 
-def save_results(results, filename="csv/results.csv", eps=1.0e-3):
+def save_results(results, filename="csv/annplant_2spp_det_rare.csv", eps=1.0e-3):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     with open(filename, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=RESULT_KEYS)
@@ -508,7 +508,7 @@ def cor_figure(results, filter_option, truncate=False):
         num_cols = df.select_dtypes(include=[np.number]).columns
         df[num_cols] = np.trunc(df[num_cols] * 100) / 100.0
     df.sort_values(by=['a22', 'a21', 'a12', 'a11', 'r2', 'r1'], inplace=True)
-    outfile = f"csv/results_filtered_{filter_option}.csv"
+    outfile = f"csv/annplant_2spp_det_rare_filtered_{filter_option}.csv"
     os.makedirs(os.path.dirname(outfile), exist_ok=True)
     df.to_csv(outfile, index=False)
     return filtered_results
@@ -551,7 +551,7 @@ def main():
             pbar.update(1)
     # Save results to CSV
     print("Saving results...")
-    save_results(results, filename="csv/results.csv")
+    save_results(results, filename="csv/annplant_2spp_det_rare.csv")
     # Perform analysis for different filter options
     for filter_option in ['on', 'off']:
         print("\n\n================================================================================================")
@@ -560,7 +560,7 @@ def main():
         # Get filtered results and save to CSV
         filtered_results = cor_figure(results, filter_option, truncate=False)
         print(f"Number of cases: {len(filtered_results)}")
-        # Only proceed if we have cases to analyze
+        # Only proceed if we have cases to analyse
         if len(filtered_results) > 0:
             nu_props = calculate_nu_proportions(filtered_results)
             dom_props = calculate_dominance_proportions(filtered_results)
