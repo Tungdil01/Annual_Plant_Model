@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import spearmanr
 from joblib import Parallel, delayed
 from tqdm import tqdm
-from sklearn.metrics import roc_auc_score, normalized_mutual_info_score
+from sklearn.metrics import matthews_corrcoef
 
 
 def preprocess_data():
@@ -345,112 +345,99 @@ def calculate_ce_cases(results, eps=1.0e-6):
 def compare_hypotheses(results, eps=1e-3):
     # Print metric explanations
     print("\nMETRIC EXPLANATIONS:")
-    print("1. ARC (Aligned Rank Correlation):")
-    print("   - Measures monotonic relationship between hypothesis categories and coexistence")
-    print("   - Ranges from -1 (perfect inverse) to 1 (perfect alignment)")
-    print("   - Interpretation: Positive = hypothesis supported, near 0 = no relationship")
-    print("   - Based on: Rank correlation between category order and coexistence proportions")
-    print("\n2. AUC (Area Under ROC Curve):")
-    print("   - Measures classification performance (coexistence vs exclusion)")
-    print("   - ROC = Receiver Operating Characteristic curve")
-    print("   - Ranges from 0 (worst) to 1 (best), 0.5 = random guessing")
-    print("   - Interpretation: Higher = better at distinguishing coexistence outcomes")
-    print("\n3. NMI (Normalized Mutual Information):")
-    print("   - Measures information gain about coexistence from hypothesis categories")
-    print("   - Ranges from 0 (no information) to 1 (perfect prediction)")
-    print("   - Interpretation: Higher = hypothesis captures more information about coexistence")
-    # Hypothesis definitions using dictionary keys
+    print("1. Risk Difference (Prop. Difference):")
+    print("   - Measures difference in coexistence probability")
+    print("   - Formula: P(coexist|condition) - P(coexist|¬condition)")
+    print("   - Range: [-1, 1]; >0 means condition promotes coexistence")
+    print("\n2. Matthews Correlation Coefficient (MCC):")
+    print("   - Measures quality of binary classification")
+    print("   - Considers all confusion matrix elements")
+    print("   - Range: [-1, 1]; 1 = perfect prediction, 0 = random\n")
+    # Hypothesis definitions (binary conditions)
     hypotheses = {
         'nu_sign': {
-            'direction': -1,  # nu<0 -> more coexistence
-            'extractor': lambda res: res['nu_sign']
+            'description': 'Strength of Self-limitation (\u03BD<0)',
+            'extractor': lambda res: 1 if res['nu'] < 0 else 0
         },
         'left_dominance': {
-            'direction': 1,   # left-dominance -> more coexistence
-            'extractor': lambda res: res['left_flag']
+            'description': 'Per Capita Growth Rate (PGR1>PGR2)',
+            'extractor': lambda res: 1 if res['left_flag'] == 1 else 0
         },
         'ce_case': {
-            'direction': 1,   # CE_rare>CE_common -> more coexistence
-            'extractor': lambda res: res['CE_case']
+            'description': 'Competitive Efficiency (CE1>CE2)',
+            'extractor': lambda res: 1 if res['CE_case'] == 1 else 0
         }
     }
-    # Data collection for metrics
-    data = {name: {} for name in hypotheses}
-    per_sim_data = {name: {'categories': [], 'labels': []} for name in hypotheses}
-    for result in results:
-        coexist = result['coexist']
+    # Initialize metrics storage
+    metrics = {'Risk Difference': {}, 'MCC': {}}
+    condition_data = {name: {'true': [], 'false': []} for name in hypotheses}
+    # Collect coexistence outcomes per condition
+    for res in results:
+        coexist = int(res['coexist'])
         for name, hyp in hypotheses.items():
-            category = hyp['extractor'](result)
-            # For per-category counts (ARC)
-            if category not in data[name]:
-                data[name][category] = [0, 0]  # [coexists, total]
-            data[name][category][1] += 1
-            if coexist == 1:
-                data[name][category][0] += 1
-            # For per-simulation data (AUC and NMI)
-            per_sim_data[name]['categories'].append(category)
-            per_sim_data[name]['labels'].append(coexist)
-    # Metrics storage
-    metrics = {'ARC': {}, 'AUC': {}, 'NMI': {}}
-    name_map = {
-        'nu_sign': 'nu sign', 
-        'left_dominance': 'PGR dominance', 
-        'ce_case': 'Competitive Efficiency'
-    }
-    # Calculate metrics for each hypothesis
-    for name, hyp in hypotheses.items():
-        categories = sorted(data[name].keys())
-        n_cats = len(categories)
-        direction = hyp['direction']
-        # 1. ARC (Aligned Rank Correlation)
-        if n_cats >= 2:
-            proportions = [data[name][c][0] / data[name][c][1] for c in categories]
-            ranks = list(range(1, n_cats + 1))
-            rho, _ = spearmanr(ranks, proportions)
-            arc = (0.0 if np.isnan(rho) else rho) * direction
-        else:
-            arc = 0.0
-        metrics['ARC'][name] = arc
-        # 2. AUC (ROC Area Under Curve)
-        labels = per_sim_data[name]['labels']
-        raw_categories = per_sim_data[name]['categories']
-        if len(set(labels)) < 2:
-            auc_value = 0.5  # Handle single-class case
-        else:
-            # Apply direction to align categories with hypothesis
-            scores = [c * direction for c in raw_categories]
-            auc_value = roc_auc_score(labels, scores)
-        metrics['AUC'][name] = auc_value
-        # 3. NMI (Normalized Mutual Information)
-        nmi_value = normalized_mutual_info_score(labels, raw_categories)
-        metrics['NMI'][name] = nmi_value
-    # Find best hypothesis for each metric (with tie handling)
-    best_per_metric = {}
-    for metric in metrics:
-        # For ARC and AUC, higher is better; for NMI, higher is better
-        max_val = max(metrics[metric].values())
-        best_hypotheses = [hyp for hyp, val in metrics[metric].items() if abs(val - max_val) < 1e-6]
-        best_per_metric[metric] = (max_val, best_hypotheses)
-    # Generate aligned report
-    print("\nHYPOTHESIS EVALUATION REPORT")
-    print("=" * 70)
-    print(f"{'Hypothesis':<25} {'ARC':>10} {'AUC':>10} {'NMI':>10}")
-    print("-" * 70)
+            condition = hyp['extractor'](res)
+            if condition == 1:
+                condition_data[name]['true'].append(coexist)
+            else:
+                condition_data[name]['false'].append(coexist)
+    # Calculate metrics
     for name in hypotheses:
-        arc_str = f"{metrics['ARC'][name]:.2g}"
-        auc_str = f"{metrics['AUC'][name]:.2g}"
-        nmi_str = f"{metrics['NMI'][name]:.2g}"
-        print(f"{name_map[name]:<25} {arc_str:>10} {auc_str:>10} {nmi_str:>10}")
-    print("=" * 70)
-    # Report best per metric
+        true_vals = condition_data[name]['true']
+        false_vals = condition_data[name]['false']
+        # Risk Difference (Risk Difference)
+        if not true_vals or not false_vals:
+            metrics['Risk Difference'][name] = float('nan')
+        else:
+            p_true = np.mean(true_vals)
+            p_false = np.mean(false_vals)
+            metrics['Risk Difference'][name] = p_true - p_false
+        # MCC calculation with FIXED degenerate case
+        all_labels = []
+        all_preds = []
+        for res in results:
+            all_labels.append(int(res['coexist']))
+            all_preds.append(hypotheses[name]['extractor'](res))
+        if len(set(all_preds)) > 1:  # MCC requires both classes present
+            metrics['MCC'][name] = matthews_corrcoef(all_labels, all_preds)
+        else:
+            metrics['MCC'][name] = float('nan')  # Degenerate case
+    # Find best hypothesis per metric
+    best_per_metric = {}
+    for metric_name, values in metrics.items():
+        # Filter out NaN values
+        valid_vals = {k: v for k, v in values.items() if not np.isnan(v)}
+        if not valid_vals:
+            best_per_metric[metric_name] = (float('nan'), [])
+            continue
+        max_val = max(valid_vals.values())
+        best_hypotheses = [hyp for hyp, val in valid_vals.items() 
+                          if abs(val - max_val) < eps]
+        best_per_metric[metric_name] = (max_val, best_hypotheses)
+    # Generate report
+    print("HYPOTHESIS EVALUATION REPORT")
+    print("=" * 65)
+    print(f"{'Hypothesis':<40} {'Risk.Diff':>10} {'MCC':>10}")
+    print("-" * 65)
+    for name, hyp in hypotheses.items():
+        rd = metrics['Risk Difference'][name]
+        mcc = metrics['MCC'][name]
+        # Format NaN values explicitly
+        rd_str = "NaN" if np.isnan(rd) else f"{rd:>10.2g}"
+        mcc_str = "NaN" if np.isnan(mcc) else f"{mcc:>10.2g}"
+        print(f"{hyp['description']:<40} {rd_str} {mcc_str}")
+    print("=" * 65)
+    # Report best per metric (with NaN handling)
     print("\nBEST HYPOTHESIS PER METRIC:")
     for metric, (max_val, best_list) in best_per_metric.items():
-        names = [name_map[hyp] for hyp in best_list]
+        if not best_list:
+            print(f"- {metric}: No valid comparisons (all hypotheses had NaN)")
+            continue
+        names = [hypotheses[name]['description'] for name in best_list]
+        max_val_str = f"{max_val:.2g}" if not np.isnan(max_val) else "NaN"
         if len(names) == 1:
-            tie_str = names[0]
+            print(f"- {metric}: {names[0]} ({max_val_str})")
         else:
-            tie_str = ", ".join(names[:-1]) + " and " + names[-1]
-        print(f"- {metric}: {tie_str} ({max_val:.2g})")
+            print(f"- {metric}: Tie between {', '.join(names)} ({max_val_str})")
     return best_per_metric
 
 
