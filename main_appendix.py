@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.16.7
+#       jupytext_version: 1.18.1
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -44,7 +44,7 @@ def getEqDensity(r1, r2, a11, a12, a21, a22): # Coexistence equilibrium populati
         initialNsp1 = 0
         initialNsp2 = 0
         N = np.zeros((100, 2))
-        N[0, :] = [initialNsp1, initialNsp2]   
+        N[0, :] = [initialNsp1, initialNsp2]  
         for i in range(1, 100):
             N[i, 0] = max((r1 - 1 - a12 * N[i-1, 1]) / a11, 0)
             N[i, 1] = max((r2 - 1 - a21 * N[i-1, 0]) / a22, 0)
@@ -57,6 +57,27 @@ def getEqDensity(r1, r2, a11, a12, a21, a22): # Coexistence equilibrium populati
     elif N1 < 0 and N2 < 0:
         N1, N2 = 0.0, 0.0
     return N1, N2
+
+
+def time_simul(r1, r2, a11, a22, a12, a21, y01=5.0, y02=5.0, eps=1e-3):
+    y1 = np.array([y01], dtype=np.float64)
+    y2 = np.array([y02], dtype=np.float64)
+    stop_run = False
+    i = 0
+    while not stop_run and i < 1000:
+        denom1 = 1 + a11 * y1[i] + a12 * y2[i]
+        denom2 = 1 + a22 * y2[i] + a21 * y1[i]
+        per_cap1 = r1 / denom1
+        per_cap2 = r2 / denom2
+        new_y1 = y1[i] * per_cap1
+        new_y2 = y2[i] * per_cap2
+        y1 = np.append(y1, new_y1)
+        y2 = np.append(y2, new_y2)
+        if i >= 1:
+            if (abs(y1[-1] - y1[-2]) < eps and abs(y2[-1] - y2[-2]) < eps):
+                stop_run = True
+        i += 1
+    return y1, y2
 
 
 # # getNFD.r
@@ -93,18 +114,18 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True):
     E2 = (r2 - 1) / a22
     P = (r1 - 1) / a12
     Q = (r2 - 1) / a21
-    # Calculate conditions for A, B, C, D
-    A = P > E2 and E1 > Q
-    B = E2 > P and Q > E1
-    C = P > E2 and Q > E1
-    D = E2 > P and E1 > Q
+    # Calculate conditions for A, B, C
+    A1 = P > E2 and E1 > Q
+    A2 = E2 > P and Q > E1
+    B = P > E2 and Q > E1
+    C = E2 > P and E1 > Q
     # Call getPCG to calculate PGR1 and PGR2
     PGR1, PGR2 = getPCG(r1, r2, a11, a12, a21, a22, N1, N2)
     if extinc_crit_1:
         Coexist = 0 if N1 < 1 or N2 < 1 else 1
     else:
         Coexist = 0 if N1 < 0.05 or N2 < 0.05 else 1
-    return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A": A, "B": B, "C": C, "D": D}
+    return {"FE1": FE1, "S1": S1, "FE2": FE2, "S2": S2, "Rank": Rank, "Coexist": Coexist, "Asy": Asy, "cor_sos": cor_sos, "Rare": Rare, "PGR1": PGR1, "PGR2": PGR2, "A1": A1, "A2": A2, "B": B, "C": C}
 
 
 # -
@@ -155,7 +176,7 @@ def Sim(k, mesh_row, extinc_crit_1=False):
     return {**metrics, "N1": N1, "N2": N2, "r1": r1, "r2": r2, "a11": a11, "a12": a12, "a21": a21, "a22": a22}
 
 def postprocess_results(results, outfile):
-    column_order = ['r1', 'r2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'FE1', 'S1', 'FE2', 'S2', 'Rank', 'Coexist', 'Asy', 'cor_sos', 'Rare', 'PGR1', 'PGR2', 'A', 'B', 'C', 'D']
+    column_order = ['r1', 'r2', 'a11', 'a12', 'a21', 'a22', 'N1', 'N2', 'FE1', 'S1', 'FE2', 'S2', 'Rank', 'Coexist', 'Asy', 'cor_sos', 'Rare', 'PGR1', 'PGR2', 'A1', 'A2', 'B', 'C']
     simul = pd.DataFrame(results, columns=column_order)
     simul.to_csv(outfile, index=False)
 
@@ -260,10 +281,10 @@ def analyze_coexistence_effect(data):
 def plot_phase_plane():
     # Parameters for each scenario
     scenarios = {
-        "A: $E_1 > Q$ and $P > E_2$": {'r1': 18, 'r2': 16, 'a11': 0.5, 'a12': 1, 'a21': 1, 'a22': 1},
-        "B: $Q > E_1$ and $E_2 > P$": {'r1': 20, 'r2': 15, 'a11': 2, 'a12': 1, 'a21': 1, 'a22': 0.5},
-        "C: $Q > E_1$ and $P > E_2$":  {'r1': 20, 'r2': 15, 'a11': 3, 'a12': 0.5, 'a21': 1, 'a22': 0.5},
-        "D: $E_1 > Q$ and $E_2 > P$":  {'r1': 16, 'r2': 18, 'a11': 0.3, 'a12': 1, 'a21': 1, 'a22': 0.5},
+        "A1: $E_1 > Q$ and $P > E_2$": {'r1': 18, 'r2': 16, 'a11': 0.5, 'a12': 1, 'a21': 1, 'a22': 1},
+        "A2: $Q > E_1$ and $E_2 > P$": {'r1': 20, 'r2': 15, 'a11': 2, 'a12': 1, 'a21': 1, 'a22': 0.5},
+        "B: $Q > E_1$ and $P > E_2$":  {'r1': 20, 'r2': 15, 'a11': 3, 'a12': 0.5, 'a21': 1, 'a22': 0.5},
+        "C: $E_1 > Q$ and $E_2 > P$":  {'r1': 16, 'r2': 18, 'a11': 0.3, 'a12': 1, 'a21': 1, 'a22': 0.5},
     }    
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
     axes = axes.flatten()    
@@ -332,7 +353,7 @@ def plot_phase_plane():
     # Adjust layout and save the figure
     plt.tight_layout()
     os.makedirs('img', exist_ok=True)
-    plt.savefig('img/phase_plane.png')
+    plt.savefig('img/phase_plane.pdf', bbox_inches='tight', dpi=300)
     plt.show()
 
 

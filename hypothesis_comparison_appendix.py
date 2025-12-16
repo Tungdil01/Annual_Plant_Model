@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.16.7
+#       jupytext_version: 1.18.1
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -23,7 +23,7 @@ import csv
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from scipy.stats import spearmanr
+#from scipy.stats import spearmanr
 from joblib import Parallel, delayed
 from tqdm import tqdm
 from sklearn.metrics import matthews_corrcoef
@@ -209,25 +209,40 @@ def calculate_nu_proportions(results, eps=1.0e-3):
     proportions = {}
     print("\n\n===== NU SIGN ANALYSIS =====")
     for key in counts:
-        total = counts[key][0] + counts[key][1]
-        proportions[key] = counts[key][1] / total if total > 0 else 0
-        co = counts[key][1] / total * 100 if total > 0 else 0
-        ex = counts[key][0] / total * 100 if total > 0 else 0
-        print(f"{key}: coexist={co:.4g}%, exclusion={ex:.4g}%")
+        coexist_count = counts[key][1]
+        exclusion_count = counts[key][0]
+        total = coexist_count + exclusion_count
+        if total == 0:
+            proportions[key] = 0
+            print(f"{key}: No representatives")
+            continue
+        proportions[key] = coexist_count / total
+        co_percent = proportions[key] * 100
+        ex_percent = 100 - co_percent
+        print(f"{key}: coexist={co_percent:.4g}% ({coexist_count}/{total}), exclusion={ex_percent:.4g}% ({exclusion_count}/{total})")
+    valid_keys = [k for k in counts if (counts[k][0] + counts[k][1]) > 0]
+    if not valid_keys:
+        print("\nNo valid categories for comparison")
+        return proportions
     sorted_keys = sorted(
-        counts,
+        valid_keys,
         key=lambda k: counts[k][1] / (counts[k][0] + counts[k][1]),
         reverse=True
     )
-    top, mid, bot = sorted_keys
-    top_p = counts[top][1] / (counts[top][0] + counts[top][1]) * 100
-    mid_p = counts[mid][1] / (counts[mid][0] + counts[mid][1]) * 100
-    bot_p = counts[bot][1] / (counts[bot][0] + counts[bot][1]) * 100
-    print(
-        f"\n{top} (coexist: {top_p:.4g}%) had a larger proportion of coexistence than "
-        f"{mid} (coexist: {mid_p:.4g}%), \nwhile {mid} had a larger proportion than "
-        f"{bot} (coexist: {bot_p:.4g}%)."
-    )
+    comparisons = []
+    for i in range(len(sorted_keys) - 1):
+        k1 = sorted_keys[i]
+        k2 = sorted_keys[i+1]
+        total1 = counts[k1][0] + counts[k1][1]
+        total2 = counts[k2][0] + counts[k2][1]
+        p1 = counts[k1][1] / total1 * 100
+        p2 = counts[k2][1] / total2 * 100
+        comparisons.append(
+            f"{k1} (coexist: {p1:.4g}% ({counts[k1][1]}/{total1})) had a larger proportion of coexistence than "
+            f"{k2} (coexist: {p2:.4g}% ({counts[k2][1]}/{total2}))"
+        )
+    if comparisons:
+        print("\n" + "\nwhile ".join(comparisons) + ".")
     return proportions
 
 
@@ -250,25 +265,40 @@ def calculate_dominance_proportions(results):
     proportions = {}
     print("\n\n===== PGR DOMINANCE ANALYSIS =====")
     for key in counts:
-        total = counts[key][0] + counts[key][1]
-        proportions[key] = counts[key][1] / total if total > 0 else 0
-        co = counts[key][1] / total * 100 if total > 0 else 0
-        ex = counts[key][0] / total * 100 if total > 0 else 0
-        print(f"{key}: coexist={co:.4g}%, exclusion={ex:.4g}%")
+        coexist_count = counts[key][1]
+        exclusion_count = counts[key][0]
+        total = coexist_count + exclusion_count
+        if total == 0:
+            proportions[key] = 0
+            print(f"{key}: No representatives")
+            continue
+        proportions[key] = coexist_count / total
+        co_percent = proportions[key] * 100
+        ex_percent = 100 - co_percent
+        print(f"{key}: coexist={co_percent:.4g}% ({coexist_count}/{total}), exclusion={ex_percent:.4g}% ({exclusion_count}/{total})")
+    valid_keys = [k for k in counts if (counts[k][0] + counts[k][1]) > 0]
+    if not valid_keys:
+        print("\nNo valid categories for comparison")
+        return proportions
     sorted_keys = sorted(
-        counts,
+        valid_keys,
         key=lambda k: counts[k][1] / (counts[k][0] + counts[k][1]),
         reverse=True
     )
-    top, mid, bot = sorted_keys
-    top_p = counts[top][1] / (counts[top][0] + counts[top][1]) * 100
-    mid_p = counts[mid][1] / (counts[mid][0] + counts[mid][1]) * 100
-    bot_p = counts[bot][1] / (counts[bot][0] + counts[bot][1]) * 100
-    print(
-        f"\n{top} (coexist: {top_p:.4g}%) had a larger proportion of coexistence than "
-        f"{mid} (coexist: {mid_p:.4g}%), \nwhile {mid} had a larger proportion than "
-        f"{bot} (coexist: {bot_p:.4g}%)."
-    )
+    comparisons = []
+    for i in range(len(sorted_keys) - 1):
+        k1 = sorted_keys[i]
+        k2 = sorted_keys[i+1]
+        total1 = counts[k1][0] + counts[k1][1]
+        total2 = counts[k2][0] + counts[k2][1]
+        p1 = counts[k1][1] / total1 * 100
+        p2 = counts[k2][1] / total2 * 100
+        comparisons.append(
+            f"{k1} (coexist: {p1:.4g}% ({counts[k1][1]}/{total1})) had a larger proportion of coexistence than "
+            f"{k2} (coexist: {p2:.4g}% ({counts[k2][1]}/{total2}))"
+        )
+    if comparisons:
+        print("\n" + "\nwhile ".join(comparisons) + ".")
     return proportions
 
 
@@ -279,66 +309,52 @@ def calculate_ce_cases(results, eps=1.0e-6):
         "CE_rare < CE_common": {0:0, 1:0},
     }
     for result in results:
-        CE_case = result['CE_case']  # Get precomputed case
+        CE_case = result['CE_case']
         coexist = result['coexist']
         if CE_case == 1:
             key = "CE_rare > CE_common"
         elif CE_case == -1:
             key = "CE_rare < CE_common"
-        else:  # CE_case == 0
+        else:
             key = "CE_rare = CE_common"
         counts[key][1 if coexist == 1 else 0] += 1
     proportions = {}
     print("\n\n===== COMPETITIVE EFFICIENCY COMPARISON ANALYSIS =====")
-    # First pass: calculate proportions and print basic stats
     for key in counts:
-        total = counts[key][0] + counts[key][1]
+        coexist_count = counts[key][1]
+        exclusion_count = counts[key][0]
+        total = coexist_count + exclusion_count
         if total == 0:
-            print(f"{key}: No representatives")
             proportions[key] = 0
+            print(f"{key}: No representatives")
             continue
-        proportions[key] = counts[key][1] / total
+        proportions[key] = coexist_count / total
         co_percent = proportions[key] * 100
         ex_percent = 100 - co_percent
-        print(f"{key}: coexist={co_percent:.4g}%, exclusion={ex_percent:.4g}%")
-    # Second pass: sort keys by coexistence proportion
+        print(f"{key}: coexist={co_percent:.4g}% ({coexist_count}/{total}), exclusion={ex_percent:.4g}% ({exclusion_count}/{total})")
     valid_keys = [k for k in counts if (counts[k][0] + counts[k][1]) > 0]
+    if not valid_keys:
+        print("\nNo valid cases found")
+        return proportions
     sorted_keys = sorted(
         valid_keys,
         key=lambda k: proportions[k],
         reverse=True
     )
-    # Handle cases with ties in proportions
-    grouped_keys = {}
-    for key in sorted_keys:
-        prop = proportions[key]
-        if prop not in grouped_keys:
-            grouped_keys[prop] = []
-        grouped_keys[prop].append(key)
-    # Report with tie-handling
-    if len(sorted_keys) == 0:
-        print("\nNo valid cases found")
-    elif len(sorted_keys) == 1:
-        key = sorted_keys[0]
-        print(f"\nOnly one group: {key} (coexist: {proportions[key]*100:.4g}%)")
-    else:
-        # Group by proportion value to handle ties
-        unique_props = sorted(set(proportions[k] for k in sorted_keys), reverse=True)
-        groups = []
-        for prop in unique_props:
-            groups.append((prop, grouped_keys[prop]))
-        # Build comparison string
-        parts = []
-        for i in range(len(groups)-1):
-            higher_group = ", ".join(groups[i][1])
-            lower_group = ", ".join(groups[i+1][1])
-            higher_p = groups[i][0] * 100
-            lower_p = groups[i+1][0] * 100
-            parts.append(
-                f"{higher_group} (coexist: {higher_p:.4g}%) had a larger "
-                f"proportion of coexistence than {lower_group} (coexist: {lower_p:.4g}%)"
-            )
-        print("\n" + ",\nwhile ".join(parts) + ".")
+    comparisons = []
+    for i in range(len(sorted_keys) - 1):
+        k1 = sorted_keys[i]
+        k2 = sorted_keys[i+1]
+        total1 = counts[k1][0] + counts[k1][1]
+        total2 = counts[k2][0] + counts[k2][1]
+        p1 = proportions[k1] * 100
+        p2 = proportions[k2] * 100
+        comparisons.append(
+            f"{k1} (coexist: {p1:.4g}% ({counts[k1][1]}/{total1})) had a larger proportion of coexistence than "
+            f"{k2} (coexist: {p2:.4g}% ({counts[k2][1]}/{total2}))"
+        )
+    if comparisons:
+        print("\n" + "\nwhile ".join(comparisons) + ".")
     return proportions
 
 

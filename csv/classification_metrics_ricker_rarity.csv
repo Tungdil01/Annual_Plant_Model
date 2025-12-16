@@ -1,0 +1,2 @@
+scenario,n_cases,n_cases_raw,coexistence_count,competitive_exclusion_count,better_metric,better_score,worse_score,nu_auc,nu_mcc,nu_accuracy,nu_threshold,nu_direction,TP_nu,TN_nu,FP_nu,FN_nu,model
+rarity,14591,14591,1817,12774,nu,0.6499503799122788,0.0,0.6499503799122788,0.36851634833733704,0.8644369817010485,-2790.242936260052,below,795,11818,956,1022,ricker
