@@ -1,2 +1,2 @@
-scenario,n_cases,n_cases_raw,coexistence_count,competitive_exclusion_count,better_metric,better_score,worse_score,nu_auc,nu_mcc,nu_accuracy,nu_threshold,nu_direction,TP_nu,TN_nu,FP_nu,FN_nu,model
-rarity,14591,14591,1817,12774,nu,0.6499503799122788,0.0,0.6499503799122788,0.36851634833733704,0.8644369817010485,-2790.242936260052,below,795,11818,956,1022,ricker
+scenario,n_cases,n_cases_raw,coexistence_count,competitive_exclusion_count,better_metric,better_score,worse_score,nu_auc,nu_mcc,nu_accuracy,nu_threshold,nu_direction,TP_nu,TN_nu,FP_nu,FN_nu,nu_C_auc,nu_C_mcc,nu_C_accuracy,nu_C_threshold,nu_C_direction,TP_nu_C,TN_nu_C,FP_nu_C,FN_nu_C,model
+rarity,14591,14591,1817,12774,nu_C,0.7733714404577474,0.6499503799122788,0.6499503799122788,0.36851634833733704,0.8644369817010485,-2790.242936260052,below,795,11818,956,1022,0.7733714404577474,0.44576412452918773,0.903159481872387,0.29994357905504365,below,421,12757,17,1396,ricker

@@ -69,8 +69,12 @@ def compute_equilibria(params, model, eps=1e-8):
             return {}
         N1 = (r1 * a22 - r2 * a12) / det
         N2 = (r2 * a11 - r1 * a21) / det
+        # Strength of Stabilization adapted following BH's SOS derivation
         S1 = np.exp(r2 * (1.0 - a12 / a22))
         S2 = np.exp(r1 * (1.0 - a21 / a11))
+        # Competition Effect adapted following BH's CE derivation
+        CE1 = r1/a12 - r2/a22 if (a12 > eps and a22 > eps) else np.nan
+        CE2 = r2/a21 - r1/a11 if (a21 > eps and a11 > eps) else np.nan
         # Carrying capacity for Ricker: r/a
         N1_potential = r1 / a11 if a11 > eps else eps
         N2_potential = r2 / a22 if a22 > eps else eps
@@ -85,18 +89,15 @@ def compute_equilibria(params, model, eps=1e-8):
     ASL1 = a11 * np.sqrt(N1_realized**2 + N1_potential**2)
     ASL2 = a22 * np.sqrt(N2_realized**2 + N2_potential**2)
     nu_ASL = (N1 - N2) * (ASL1 - ASL2) / 2.0
+    nu_C = (N1 - N2) * (CE1 - CE2) / 2.0 if (not np.isnan(CE1) and not np.isnan(CE2)) else np.nan
     if model == 'ricker':
         return {
-            'N1': N1, 'N2': N2, 'S1': S1, 'S2': S2,
-            'nu': nu, 'nu_ASL': nu_ASL, 'nu_a': nu_a
+            'N1': N1, 'N2': N2, 'S1': S1, 'S2': S2, 'nu': nu, 'nu_ASL': nu_ASL, 'nu_a': nu_a, 'nu_C': nu_C
         }
     else:
         nu_CA = (N1 - N2) * (CA1 - CA2) / 2.0
-        nu_CE = (N1 - N2) * (CE1 - CE2) / 2.0
         return {
-            'N1': N1, 'N2': N2, 'S1': S1, 'S2': S2,
-            'nu': nu, 'nu_ASL': nu_ASL, 'nu_a': nu_a,
-            'nu_CA': nu_CA, 'nu_CE': nu_CE
+            'N1': N1, 'N2': N2, 'S1': S1, 'S2': S2, 'nu': nu, 'nu_ASL': nu_ASL, 'nu_a': nu_a, 'nu_CA': nu_CA, 'nu_C': nu_C
         }
 
 
@@ -243,8 +244,8 @@ def analyze_parameter_set(params, model, metrics, eps = 1e-8):
             S2 = np.exp(r1 * (1.0 - a21 / a11))
             CA1 = np.nan
             CA2 = np.nan
-            CE1 = np.nan
-            CE2 = np.nan
+            CE1 = r1/a12 - r2/a22 if (a12 > eps and a22 > eps) else np.nan
+            CE2 = r2/a21 - r1/a11 if (a21 > eps and a11 > eps) else np.nan
         nu = (N1 - N2) * (S1 - S2) / 2.0
         nu_a = (N1 - N2) * (a11 - a22) / 2.0
         N1_realized = N1 if N1 > 0.0 else 0.0
@@ -256,16 +257,18 @@ def analyze_parameter_set(params, model, metrics, eps = 1e-8):
         nu_ASL = (N1 - N2) * (ASL1 - ASL2) / 2.0
         if model == 'bevertonHolt':
             nu_CA = (N1 - N2) * (CA1 - CA2) / 2.0
-            nu_CE = (N1 - N2) * (CE1 - CE2) / 2.0
+            nu_C = (N1 - N2) * (CE1 - CE2) / 2.0
             equilibria = {
                 'N1': N1, 'N2': N2, 'S1': S1, 'S2': S2,
                 'nu': nu, 'nu_ASL': nu_ASL, 'nu_a': nu_a,
-                'nu_CA': nu_CA, 'nu_CE': nu_CE
+                'nu_CA': nu_CA, 'nu_C': nu_C
             }
         else:
+            nu_C = (N1 - N2) * (CE1 - CE2) / 2.0 if (not np.isnan(CE1) and not np.isnan(CE2)) else np.nan
             equilibria = {
                 'N1': N1, 'N2': N2, 'S1': S1, 'S2': S2,
-                'nu': nu, 'nu_ASL': nu_ASL, 'nu_a': nu_a
+                'nu': nu, 'nu_ASL': nu_ASL, 'nu_a': nu_a,
+                'nu_C': nu_C
             }
     result = {
         'valid_outcome': True,
@@ -502,8 +505,10 @@ def get_metric_config(metric_name):
                 base, sub = parts
                 return f'$\\nu_{{{sub}}}$'
         return '$\\nu$'
-    elif metric_name in ['CA', 'CE']:
+    elif metric_name in ['CA']:
         return f'${metric_name}$'
+    elif metric_name in ['CE']:
+        return f'$C$'
     elif metric_name.startswith('ASL'):
         if len(metric_name) > 3:
             return f'$ASL_{{{metric_name[3:]}}}$'
@@ -558,8 +563,9 @@ def plot_mcc_comparison(metrics_dict, model_name, metrics, scenario):
     lines2, labels2 = ax2.get_legend_handles_labels()
     plt.tight_layout()
     os.makedirs('img', exist_ok=True)
-    filename = f'img/metric_comparison_{model_name}_{scenario}'
-    fig.savefig(f'{filename}.pdf', bbox_inches='tight', dpi=300)
+    filename = f'metric_comparison_{model_name}_{scenario}'
+    fig.savefig(f'img/{filename}.pdf', bbox_inches='tight', dpi=300)
+    fig.savefig(f'img/{filename}.png', bbox_inches='tight', dpi=300)
     plt.close()
 
 
@@ -596,8 +602,9 @@ def plot_roc_curves(metrics_data_dict, outcomes, model_name, metrics, scenario):
     ax.legend(loc="lower right")
     plt.tight_layout()
     os.makedirs('img', exist_ok=True)
-    filename = f'img/roc_curves_{model_name}_{scenario}.pdf'
-    fig.savefig(filename, bbox_inches='tight', dpi=300)
+    filename = f'roc_curves_{model_name}_{scenario}'
+    fig.savefig(f'img/{filename}.pdf', bbox_inches='tight', dpi=300)
+    fig.savefig(f'img/{filename}.png', bbox_inches='tight', dpi=300)
     plt.close()
 
 
@@ -628,9 +635,9 @@ def plot_probability_analysis(prob_results, model_name, metrics, scenario):
         bars1 = ax.bar(x - width/2, coex_given_cond, width, label='P(Coexistence | Condition)', edgecolor='black', alpha=0.7)
         bars2 = ax.bar(x + width/2, cond_given_coex, width, label='P(Condition | Coexistence)', edgecolor='black', alpha=0.7)
         error_bars_data = [
-            (x[0] - width/2, coex_given_neg, coex_given_neg_lower, coex_given_neg_upper),
-            (x[1] - width/2, coex_given_pos, coex_given_pos_lower, coex_given_pos_upper),
-            (x[0] + width/2, neg_given_coex, neg_given_coex_lower, neg_given_coex_upper),
+            (x[0] - width/2, coex_given_neg, coex_given_neg_lower, coex_given_neg_upper), 
+            (x[1] - width/2, coex_given_pos, coex_given_pos_lower, coex_given_pos_upper), 
+            (x[0] + width/2, neg_given_coex, neg_given_coex_lower, neg_given_coex_upper), 
             (x[1] + width/2, pos_given_coex, pos_given_coex_lower, pos_given_coex_upper)
         ]
         for x_pos, val, lower, upper in error_bars_data:
@@ -650,8 +657,18 @@ def plot_probability_analysis(prob_results, model_name, metrics, scenario):
         ax.set_ylim(0, 1.1)
         plt.tight_layout()
         os.makedirs('img', exist_ok=True)
-        filename = f'img/probability_analysis_{scenario}_{metric}_{model_name}.pdf'
-        fig.savefig(filename, bbox_inches='tight', dpi=300)
+        if scenario == 'rarity' and metric == 'nu' and model_name == 'bevertonHolt':
+            base_name = 'fig_1a'
+        elif scenario == 'rarity' and metric == 'nu_C' and model_name == 'bevertonHolt':
+            base_name = 'fig_1b'
+        elif scenario == 'rarity' and metric == 'nu' and model_name == 'ricker':
+            base_name = 'fig_s2a'
+        elif scenario == 'rarity' and metric == 'nu_C' and model_name == 'ricker':
+            base_name = 'fig_s2b'
+        else:
+            base_name = f'probability_analysis_{scenario}_{metric}_{model_name}'
+        fig.savefig(f'img/{base_name}.pdf', bbox_inches='tight', dpi=300)
+        fig.savefig(f'img/{base_name}.png', bbox_inches='tight', dpi=300)
         plt.close(fig)
 
 
@@ -867,15 +884,10 @@ def analyze_model(model_name, metrics, scenario, n_samples=10000, n_jobs=-1, boo
     print(f"Scenario: {scenario.upper()}")
     print(f"{'='*50}")
     if model_name == 'ricker':
-        metrics_for_model = [m for m in metrics if m not in ('nu_CA', 'nu_CE')]
+        metrics_for_model = [m for m in metrics if m not in ('nu_CA',)]
     else:
         metrics_for_model = list(metrics)
-    results, params = run_parallel_analysis(
-        model=model_name,
-        metrics=metrics_for_model,
-        n_samples=n_samples,
-        n_jobs=n_jobs
-    )
+    results, params = run_parallel_analysis(model=model_name, metrics=metrics_for_model, n_samples=n_samples, n_jobs=n_jobs)
     print(f"\nANALYSIS COMPLETED")
     print(f"Total samples: {n_samples:.3g}")
     valid_count = np.sum(results['valid_outcome'])
@@ -891,18 +903,12 @@ def analyze_model(model_name, metrics, scenario, n_samples=10000, n_jobs=-1, boo
     print(f"\n{'='*50}")
     print("RUNNING COMPREHENSIVE PROBABILITY ANALYSIS...")
     print(f"Bootstrap replicates: {bootstrap_replicates:.3g}")
-    prob_results = compute_probability_analysis(
-        results, params, scenario, model=model_name, metrics=metrics_for_model,
-        bootstrap_replicates=bootstrap_replicates,
-        confidence_level=confidence_level
-    )
+    prob_results = compute_probability_analysis(results, params, scenario, model=model_name, metrics=metrics_for_model, bootstrap_replicates=bootstrap_replicates, confidence_level=confidence_level)
     print_probability_analysis(prob_results, metrics_for_model, scenario)
     plot_probability_analysis(prob_results, model_name, metrics_for_model, scenario)
     print(f"\n{'='*50}")
     print("RUNNING CLASSIFICATION ANALYSIS...")
-    classification_results = calculate_comparison_metrics(
-        results, params, metrics_for_model, scenario, bootstrap_replicates
-    )
+    classification_results = calculate_comparison_metrics(results, params, metrics_for_model, scenario, bootstrap_replicates)
     if classification_results and classification_results[0] is not None:
         metrics_dict = classification_results[0]
         metric_data_arrays = classification_results[1:]
@@ -924,18 +930,93 @@ def analyze_model(model_name, metrics, scenario, n_samples=10000, n_jobs=-1, boo
         plot_mcc_comparison(metrics_dict, model_name, metrics_for_model, scenario)
     else:
         metrics_data_dict = None
-    save_results_to_csv(results, params, prob_results,
-                        metrics_dict if classification_results else None,
-                        model_name, scenario, metrics_for_model)
+    save_results_to_csv(results, params, prob_results, metrics_dict if classification_results else None, model_name, scenario, metrics_for_model)
     print(f"\n{'='*50}")
     print(f"ANALYSIS FOR {model_name.upper()} - {scenario.upper()} COMPLETE!")
     print(f"{'='*50}")
     return {
-        'results': results,
-        'params': params,
-        'prob_results': prob_results,
-        'metrics_dict': metrics_dict
+        'results': results, 'params': params, 'prob_results': prob_results, 'metrics_dict': metrics_dict
     }
+
+
+def plot_phase_plane():
+    # Parameters for each scenario
+    scenarios = {
+        "A1: $E_1 > Q$ and $P > E_2$": {'r1': 18, 'r2': 16, 'a11': 0.5, 'a12': 1, 'a21': 1, 'a22': 1},
+        "A2: $Q > E_1$ and $E_2 > P$": {'r1': 20, 'r2': 15, 'a11': 2, 'a12': 1, 'a21': 1, 'a22': 0.5},
+        "B: $Q > E_1$ and $P > E_2$":  {'r1': 20, 'r2': 15, 'a11': 3, 'a12': 0.5, 'a21': 1, 'a22': 0.5},
+        "C: $E_1 > Q$ and $E_2 > P$":  {'r1': 16, 'r2': 18, 'a11': 0.3, 'a12': 1, 'a21': 1, 'a22': 0.5},
+    }    
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    axes = axes.flatten()    
+    for i, (title, params) in enumerate(scenarios.items()):
+        ax = axes[i]
+        # Unpack parameters
+        r1 = params['r1']
+        r2 = params['r2']
+        a11 = params['a11']
+        a12 = params['a12']
+        a21 = params['a21']
+        a22 = params['a22']
+        # Equilibrium points
+        E1 = [(r1 - 1) / a11, 0]
+        Q = [(r2 - 1) / a21, 0]
+        E2 = [0, (r2 - 1) / a22]
+        P = [0, (r1 - 1) / a12]
+        E0 = [0, 0]
+        # Calculate the intersection point of lines (E1, Q) and (E2, P)
+        a1 = (P[1] - E1[1]) / (P[0] - E1[0]) if P[0] != E1[0] else float('inf')
+        b1 = E1[1] - a1 * E1[0]
+        a2 = (E2[1] - Q[1]) / (E2[0] - Q[0]) if E2[0] != Q[0] else float('inf')
+        b2 = Q[1] - a2 * Q[0]
+        if a1 != a2:  # Ensure lines are not parallel
+            E3_x = (b2 - b1) / (a1 - a2) if a1 != float('inf') and a2 != float('inf') else 0
+            E3_y = a1 * E3_x + b1 if a1 != float('inf') else a2 * E3_x + b2
+            E3 = [E3_x, E3_y]
+        else:
+            E3 = None
+        # Extend axis limits by 10%
+        max_N1 = max(E1[0], Q[0])
+        max_N2 = max(E2[1], P[1])
+        N1 = np.linspace(0, max_N1, 30)
+        N2 = np.linspace(0, max_N2, 30)
+        N1, N2 = np.meshgrid(N1, N2)
+        # Compute the discrete system
+        N1_next = r1 * N1 / (1 + a11 * N1 + a12 * N2)
+        N2_next = r2 * N2 / (1 + a22 * N2 + a21 * N1)
+        # Plot vector field
+        ax.quiver(N1, N2, N1_next - N1, N2_next - N2, angles='xy', scale_units='xy', scale=15, color='grey', alpha=1)
+        # Plot equilibrium points
+        ax.plot(E0[0], E0[1], 'ko', label='E0', markersize=8)
+        ax.plot(E1[0], E1[1], 'bo', label='E1', markersize=8)
+        ax.plot(Q[0], Q[1], 'ro', label='Q', markersize=8)
+        ax.plot(E2[0], E2[1], 'ro', label='E2', markersize=8)
+        ax.plot(P[0], P[1], 'bo', label='P', markersize=8)
+        # Draw lines between points
+        ax.plot([E1[0], P[0]], [E1[1], P[1]], 'b-', lw=2)  # Line between P and E1 (blue)
+        ax.plot([Q[0], E2[0]], [Q[1], E2[1]], 'r-', lw=2)  # Line between Q and E2 (red)
+        # Plot intersection point E3 if it exists within the plot limits and above the lines
+        if E3 is not None and (0 <= E3[0] <= 1.1 * max_N1) and (0 <= E3[1] <= 1.1 * max_N2):
+            ax.plot(E3[0], E3[1], 'go', label=r'$E_3$', markersize=8)
+            # Annotate E3 near the point
+            ax.annotate(f'$E_3$', xy=(E3[0], E3[1]), xytext=(E3[0] + 0.3, E3[1] + 0.3), fontsize=18, color='green')
+        # Set labels and title
+        ax.set_xlabel(r'$N_1$', fontsize=18)
+        ax.set_ylabel(r'$N_2$', fontsize=18)
+        # Move title to the left
+        ax.set_title(title, fontsize=18, loc='left')
+        # Set xticks and yticks with labels for E1, E2, P, Q
+        ax.set_xticks([0, E1[0], Q[0]])
+        ax.set_xticklabels([r'$E_0$', r'$E_1$', r'$Q$'])
+        ax.set_yticks([0, E2[1], P[1]])
+        ax.set_yticklabels([r'$E_0$', r'$E_2$', r'$P$'])
+        ax.tick_params(axis='both', which='major', labelsize=18)
+    # Adjust layout and save the figure
+    plt.tight_layout()
+    os.makedirs('img', exist_ok=True)
+    filename = f'fig_s1'
+    fig.savefig(f'img/{filename}.pdf', bbox_inches='tight', dpi=300)
+    fig.savefig(f'img/{filename}.png', bbox_inches='tight', dpi=300)
 
 
 def main():
@@ -943,8 +1024,8 @@ def main():
     n_jobs = -1
     bootstrap_replicates = int(0.1*n_samples)
     confidence_level = 0.95
-    models = ['bevertonHolt'] # , 'ricker'
-    metrics = ['nu', 'nu_CE'] # , 'nu_CA', 'nu_ASL', 'nu_a'
+    models = ['bevertonHolt', 'ricker'] # 
+    metrics = ['nu', 'nu_C'] # , 'nu_CA', 'nu_ASL', 'nu_a'
     scenarios = ['rarity'] # , 'general'
     print("="*50)
     print("COEXISTENCE vs COMPETITIVE EXCLUSION ANALYSIS")
@@ -984,6 +1065,7 @@ def main():
                 if metrics_dict:
                     for metric in metrics:
                         print(f"    {get_metric_config(metric)} MCC: {metrics_dict.get(f'{metric}_mcc', 0):.3g}")
+    plot_phase_plane()
     print(f"\n{'='*50}")
     print("ANALYSIS COMPLETE! All results saved to 'csv/' directory.")
     print(f"{'='*50}")
