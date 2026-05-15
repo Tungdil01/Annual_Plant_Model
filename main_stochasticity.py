@@ -20,6 +20,7 @@
 # #### their original code: https://github.com/gmyenni/RareStabilizationSimulation
 
 import os
+import itertools
 import numpy as np
 import pandas as pd
 from scipy.stats import qmc
@@ -198,6 +199,44 @@ def generate_parameter_sets(n_samples=2000, eps=1e-3, seed=1234):
     return scaled_samples
 
 
+# def generate_parameter_sets(n_samples=2000, eps=1e-3, seed=1234):
+#     sampler = qmc.LatinHypercube(d=6, seed=seed)
+#     samples = sampler.random(n=n_samples)
+#     scaled_samples = np.zeros_like(samples)
+#     scaled_samples[:, 0] = samples[:, 0] * (20 - 15) + 15 # r1 in (15,20)
+#     scaled_samples[:, 1] = samples[:, 1] * (20 - 15) + 15 # r2 in (15,20)
+#     scaled_samples[:, 2] = samples[:, 2] * (3 - 0.1) + 0.1 # a11 in (0.1,3)
+#     scaled_samples[:, 3] = samples[:, 3] * (1 - 0.1) + 0.1 # a22 in (0.1,1)
+#     scaled_samples[:, 4] = samples[:, 4] * (1 - 0.1) + 0.1 # a12 in (0.1,1)
+#     scaled_samples[:, 5] = samples[:, 5] * (1 - 0.1) + 0.1 # a21 in (0.1,1)
+#     return scaled_samples
+
+# def generate_parameter_sets(n_samples=None, eps=1e-3, seed=1234):
+#     r1_vals = np.arange(15, 21)
+#     r2_vals = np.arange(11, 21)
+#     a11_vals = np.round(np.arange(0.7, 3.1, 0.1), 1)
+#     a22_vals = np.round(np.arange(0.1, 1.1, 0.1), 1)
+#     a12_vals = np.round(np.arange(0.1, 1.1, 0.1), 1)
+#     a21_vals = np.round(np.arange(0.1, 1.1, 0.1), 1)
+#     combos = list(itertools.product(r1_vals, r2_vals, a11_vals, a12_vals, a21_vals, a22_vals))
+#     valid = []
+#     for r1, r2, a11, a12, a21, a22 in combos:
+#         if not (a11 > 0 and a22 > 0):
+#             continue
+#         scenario = check_analytical_scenarios_beverton_holt((r1, r2, a11, a22, a12, a21))
+#         if scenario == 'stable_coexistence':
+#             try:
+#                 N1, N2, eq_type = find_equilibrium(r1, r2, a11, a22, a12, a21)
+#                 if eq_type == "coexistence" and N1 > 0 and N2 > 0:
+#                     total = N1 + N2
+#                     if total > 0 and N1 / total <= 0.25:
+#                         valid.append([r1, r2, a11, a12, a21, a22])
+#             except:
+#                 continue
+#     if len(valid) == 0:
+#         raise ValueError("No valid parameter sets found")
+#     return np.array(valid)
+
 def analyze_extinction_patterns(extinction_results, rare_species):
     if rare_species == "species1_rare":
         rare_extinct = extinction_results.count("species1_extinct")
@@ -277,6 +316,17 @@ def run_demographic_stochasticity_analysis(n_parameter_sets=100000, n_simulation
         raise ValueError("No valid parameter sets found")
     return pd.DataFrame(results)
 
+
+# def run_demographic_stochasticity_analysis(n_parameter_sets=None, n_simulations_per_set=200, max_time=500, seed=1234):
+#     parameter_sets = generate_parameter_sets(seed=seed)
+#     results = Parallel(n_jobs=-1, verbose=0)(
+#         delayed(process_parameter_set)(params, n_simulations_per_set, max_time)
+#         for params in parameter_sets
+#     )
+#     results = [r for r in results if r is not None]
+#     if len(results) == 0:
+#         raise ValueError("No valid parameter sets found")
+#     return pd.DataFrame(results)
 
 def bootstrap_confidence_interval(data, n_bootstrap=10000, ci=95, seed_offset=0):
     bootstrapped_means = []
@@ -489,12 +539,12 @@ def plot_analysis_results(results_df, analysis_results, metric='nu'):
         median.set_linewidth(2)
         median.set_linestyle('--')
     for mean in bp['means']:
-        mean.set_color('yellow')
+        mean.set_color('orange')
         mean.set_linewidth(2)
         mean.set_linestyle('-')
     ax.set_ylabel('Log(Mean Coexistence Time)')
     legend_elements = [
-        Line2D([0], [0], color='yellow', linewidth=2, label='Mean'),
+        Line2D([0], [0], color='orange', linewidth=2, label='Mean'),
         Line2D([0], [0], color='black', linewidth=2, linestyle='--', label='Median')
     ]
     ax.legend(handles=legend_elements, loc='upper right')
@@ -509,7 +559,6 @@ def plot_analysis_results(results_df, analysis_results, metric='nu'):
     fig.savefig(f'img/{base_name}.pdf', bbox_inches='tight', dpi=300)
     fig.savefig(f'img/{base_name}.png', bbox_inches='tight', dpi=300)
     plt.show()
-
 
 
 def time_simul(r1, r2, a11, a22, a12, a21, y01=5.0, y02=5.0, eps=1e-3):
@@ -577,7 +626,6 @@ def demographic_stochasticity_time_series(params, n_simulations=100, max_time=10
         return time_series_rare, time_series_common, time_steps, rare_status, survival_mask, extinction_times
     except Exception:
         return np.array([]), np.array([]), np.array([]), "error", np.array([]), np.array([])
-
 
 
 def find_example_parameter_sets(metrics, results_df, n_additional_samples=50000, seed=1234):
@@ -682,6 +730,38 @@ def find_example_parameter_sets(metrics, results_df, n_additional_samples=50000,
     return examples
 
 
+def plot_stochastic_time_series(ax, time_series_rare, time_steps, survival_mask, extinction_times, max_time, metric=None, row_idx=None):
+    survived = survival_mask
+    extinct = ~survival_mask
+    if np.any(survived):
+        survived_rare = time_series_rare[survived]
+        min_survived_rare = np.min(survived_rare, axis=0)
+        max_survived_rare = np.max(survived_rare, axis=0)
+        median_survived_rare = np.median(survived_rare, axis=0)
+        ax.fill_between(time_steps, min_survived_rare, max_survived_rare, alpha=0.2, color='green')
+        ax.plot(time_steps, median_survived_rare, 'g-', linewidth=2, label=f'Surviving median (n={np.sum(survived)})')
+    if np.any(extinct):
+        extinct_rare = time_series_rare[extinct]
+        extinct_masked = np.ma.array(extinct_rare, mask=False)
+        for i, ext_time in enumerate(extinction_times[extinct]):
+            if ext_time < max_time:
+                extinct_masked.mask[i, int(ext_time):] = True
+        min_extinct_rare = np.ma.min(extinct_masked, axis=0)
+        max_extinct_rare = np.ma.max(extinct_masked, axis=0)
+        median_extinct_rare = np.ma.median(extinct_masked, axis=0)
+        valid_mask = ~min_extinct_rare.mask & ~max_extinct_rare.mask
+        if np.any(valid_mask):
+            ax.fill_between(time_steps[valid_mask], min_extinct_rare[valid_mask].data, max_extinct_rare[valid_mask].data, alpha=0.2, color='red')
+            ax.plot(time_steps[valid_mask], median_extinct_rare[valid_mask].data, 'r--', linewidth=2, label=f'Extinct median (n={np.sum(extinct)})')
+    y_max = np.max(time_series_rare) * 1.1 if np.max(time_series_rare) > 0 else 1
+    ax.set_ylim([0, y_max])
+    ax.set_xlim([0, max_time - 1])
+    if metric == 'nu' and row_idx == 1:
+        ax.legend(loc='best', fontsize=24)
+    elif metric == 'nu_C' and row_idx == 0:
+        ax.legend(loc='best', fontsize=24)
+
+
 def plot_examples_stochastic_time_series(metrics, examples, n_simulations=2000, max_time=500):
     figures = {}
     axes_dict = {}
@@ -735,36 +815,87 @@ def plot_examples_stochastic_time_series(metrics, examples, n_simulations=2000, 
     return figures
 
 
-def plot_stochastic_time_series(ax, time_series_rare, time_steps, survival_mask, extinction_times, max_time, metric=None, row_idx=None):
-    survived = survival_mask
-    extinct = ~survival_mask
-    if np.any(survived):
-        survived_rare = time_series_rare[survived]
-        min_survived_rare = np.min(survived_rare, axis=0)
-        max_survived_rare = np.max(survived_rare, axis=0)
-        median_survived_rare = np.median(survived_rare, axis=0)
-        ax.fill_between(time_steps, min_survived_rare, max_survived_rare, alpha=0.2, color='green')
-        ax.plot(time_steps, median_survived_rare, 'g-', linewidth=2, label=f'Surviving median (n={np.sum(survived)})')
-    if np.any(extinct):
-        extinct_rare = time_series_rare[extinct]
-        extinct_masked = np.ma.array(extinct_rare, mask=False)
-        for i, ext_time in enumerate(extinction_times[extinct]):
-            if ext_time < max_time:
-                extinct_masked.mask[i, int(ext_time):] = True
-        min_extinct_rare = np.ma.min(extinct_masked, axis=0)
-        max_extinct_rare = np.ma.max(extinct_masked, axis=0)
-        median_extinct_rare = np.ma.median(extinct_masked, axis=0)
-        valid_mask = ~min_extinct_rare.mask & ~max_extinct_rare.mask
-        if np.any(valid_mask):
-            ax.fill_between(time_steps[valid_mask], min_extinct_rare[valid_mask].data, max_extinct_rare[valid_mask].data, alpha=0.2, color='red')
-            ax.plot(time_steps[valid_mask], median_extinct_rare[valid_mask].data, 'r--', linewidth=2, label=f'Extinct median (n={np.sum(extinct)})')
-    y_max = np.max(time_series_rare) * 1.1 if np.max(time_series_rare) > 0 else 1
-    ax.set_ylim([0, y_max])
-    ax.set_xlim([0, max_time - 1])
-    if metric == 'nu' and row_idx == 1:
-        ax.legend(loc='best', fontsize=24)
-    elif metric == 'nu_C' and row_idx == 0:
-        ax.legend(loc='best', fontsize=24)
+def plot_fig_s3(results_df):
+    valid = results_df[(results_df['rare_species'].isin(['species1_rare', 'species2_rare'])) &
+                       (results_df['N1_eq'] > 0) & (results_df['N2_eq'] > 0)].copy()
+    if len(valid) == 0:
+        print("No valid data for fig_s3")
+        return
+    S_rare = []
+    S_dominant = []
+    rare_density = []
+    dominant_density = []
+    for idx, row in valid.iterrows():
+        if row['rare_species'] == 'species1_rare':
+            S_rare.append(row['SoS1'])
+            S_dominant.append(row['SoS2'])
+            rare_density.append(row['N1_eq'])
+            dominant_density.append(row['N2_eq'])
+        else:
+            S_rare.append(row['SoS2'])
+            S_dominant.append(row['SoS1'])
+            rare_density.append(row['N2_eq'])
+            dominant_density.append(row['N1_eq'])
+    valid['S_rare'] = S_rare
+    valid['S_dominant'] = S_dominant
+    valid['rare_density'] = rare_density
+    valid['dominant_density'] = dominant_density
+    bins = [(1,2), (2,3), (3,4), (4, np.inf)]
+    bin_labels = ['1<S<2', '2<S<3', '3<S<4', 'S>4']
+    fig, axes = plt.subplots(2, 4, figsize=(16, 10))
+    for col, (low, high) in enumerate(bins):
+        if high == np.inf:
+            mask = valid['S_rare'] > low
+        else:
+            mask = (valid['S_rare'] > low) & (valid['S_rare'] < high)
+        subset = valid[mask]
+        # Top row: rare species
+        ax_top = axes[0, col]
+        if len(subset) > 0:
+            x_rare = subset['rare_density'].values
+            y_rare = subset['median_coexistence_time'].values
+            # Bin density into 20 bins, compute median coexistence time per bin
+            n_bins = 20
+            bins_density = np.linspace(x_rare.min(), x_rare.max(), n_bins+1)
+            bin_centers = (bins_density[:-1] + bins_density[1:]) / 2
+            medians = []
+            for i in range(n_bins):
+                mask_bin = (x_rare >= bins_density[i]) & (x_rare < bins_density[i+1])
+                if np.any(mask_bin):
+                    medians.append(np.median(y_rare[mask_bin]))
+                else:
+                    medians.append(np.nan)
+            ax_top.bar(bin_centers, medians, width=np.diff(bins_density)[0], color='blue', alpha=0.6)
+            ax_top.set_ylabel('Median coexistence time')
+        else:
+            ax_top.text(0.5, 0.5, 'No data', ha='center', va='center')
+        ax_top.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
+        # Bottom row: dominant species
+        ax_bottom = axes[1, col]
+        if len(subset) > 0:
+            x_dom = subset['dominant_density'].values
+            y_dom = subset['median_coexistence_time'].values
+            n_bins = 20
+            bins_density = np.linspace(x_dom.min(), x_dom.max(), n_bins+1)
+            bin_centers = (bins_density[:-1] + bins_density[1:]) / 2
+            medians = []
+            for i in range(n_bins):
+                mask_bin = (x_dom >= bins_density[i]) & (x_dom < bins_density[i+1])
+                if np.any(mask_bin):
+                    medians.append(np.median(y_dom[mask_bin]))
+                else:
+                    medians.append(np.nan)
+            ax_bottom.bar(bin_centers, medians, width=np.diff(bins_density)[0], color='red', alpha=0.6)
+            ax_bottom.set_xlabel(bin_labels[col])
+            ax_bottom.set_ylabel('Median coexistence time')
+        else:
+            ax_bottom.text(0.5, 0.5, 'No data', ha='center', va='center')
+        ax_bottom.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
+    plt.tight_layout()
+    os.makedirs('img', exist_ok=True)
+    fig.savefig('img/fig_s3.pdf', bbox_inches='tight', dpi=300)
+    fig.savefig('img/fig_s3.png', bbox_inches='tight', dpi=300)
+    plt.show()
 
 
 def classify_sign(value):
@@ -775,7 +906,7 @@ def main():
     n_parameter_sets = 10000
     n_simulations_per_set = 2000
     n_additional_samples = 1000
-    max_time = 500
+    max_time=500
     print("Running demographic stochasticity analysis...")
     results_df = run_demographic_stochasticity_analysis(
         n_parameter_sets=n_parameter_sets,
@@ -792,7 +923,28 @@ def main():
         plot_analysis_results(results_df, analysis_results, metric=metric)
     # Plot all stochastic time series
     plot_examples_stochastic_time_series(metrics, examples, n_simulations=2000, max_time=max_time)
+    plot_fig_s3(results_df)
 
+
+# def main():
+#     n_simulations_per_set = 2000
+#     n_additional_samples = 1000
+#     max_time = 50000
+#     print("Running demographic stochasticity analysis...")
+#     results_df = run_demographic_stochasticity_analysis(
+#         n_simulations_per_set=n_simulations_per_set,
+#         max_time=max_time
+#     )
+#     save_results(results_df)
+#     metrics = ['nu', 'nu_C']
+#     examples = find_example_parameter_sets(metrics, results_df, n_additional_samples)
+#     for metric in metrics:
+#         print(f"\nAnalyzing metric: {metric}")
+#         analysis_results = analyze_simulation_results(results_df, metric=metric)
+#         print_analysis(analysis_results, metric=metric)
+#         plot_analysis_results(results_df, analysis_results, metric=metric)
+#     plot_examples_stochastic_time_series(metrics, examples, n_simulations=2000, max_time=max_time)
+#     plot_fig_s3(results_df)
 
 if __name__ == "__main__":
     main()

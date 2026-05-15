@@ -51,15 +51,30 @@ def check_coexistence(r1, r2, a11, a12, a21, a22, eps=0.05):
     E2 = (r2 - 1) / a22
     P  = (r1 - 1) / a12
     Q  = (r2 - 1) / a21
-    if (P > E2 and E1 > Q) or (E2 > P and Q > E1):
-        return 0      # competitive exclusion
-    if (P > E2 and Q > E1):
-        return 1      # stable coexistence
-    N1, N2 = find_equilibrium(r1, r2, a11, a12, a21, a22)
-    if (N1 < eps or N2 < eps):
-        return 0      # competitive exclusion
-    if (N1 > eps and N2 > eps):
-        return 1      # stable coexistence
+    if (P > E2 and E1 > Q):
+        category = 'A1'
+        outcome = 0
+    elif (E2 > P and Q > E1):
+        category = 'A2'
+        outcome = 0
+    elif (P > E2 and Q > E1):
+        category = 'B'
+        outcome = 1
+    else:
+        N1, N2 = find_equilibrium(r1, r2, a11, a12, a21, a22)
+        if (N1 < eps or N2 < eps):
+            outcome = 0
+        else:
+            outcome = 1
+        if (P > E2 and E1 > Q) or (E2 > P and Q > E1):
+            category = 'A1' if (P > E2 and E1 > Q) else 'A2'
+        elif (P > E2 and Q > E1):
+            category = 'B'
+        elif (E2 > P and E1 > Q):
+            category = 'C'
+        else:
+            category = 'borderline'
+    return outcome, category
 
 
 def compute_nu(N1, N2, S1, S2):
@@ -458,19 +473,20 @@ def compare_hypotheses(results, eps=1e-3):
 
 
 def cor_figure(results, filter_option, truncate=False):
-    # Create in-memory filtered results
     filtered_results = []
     for result in results:
         rank = result['Rank']
         S1 = result['S1']
         S2 = result['S2']
+        theo = result.get('theo_category', '')
+        if theo not in ['A1','A2','B']:
+            continue
         if filter_option == 'on':
             if rank == 2 and S1 >= 1 and S2 >= 1:
                 filtered_results.append(result)
-        else:  # 'off'
+        else:
             if rank == 2:
                 filtered_results.append(result)
-    # Convert to DataFrame for CSV output
     df = pd.DataFrame(filtered_results)
     if truncate:
         num_cols = df.select_dtypes(include=[np.number]).columns
@@ -485,10 +501,9 @@ def cor_figure(results, filter_option, truncate=False):
 def process_set(idx, params, F):
     r1, r2, a11, a12, a21, a22 = params
     S1, S2 = SOS(r1, r2, a11, a12, a21, a22)
-    coexist = check_coexistence(r1, r2, a11, a12, a21, a22)
+    coexist, category = check_coexistence(r1, r2, a11, a12, a21, a22)
     N1_eq, N2_eq = find_equilibrium(r1, r2, a11, a12, a21, a22)
     total_eq = N1_eq + N2_eq
-    # Calculate F1_star from equilibrium
     F1_star = N1_eq / total_eq if total_eq > 0 else 0.5
     nu = compute_nu(N1_eq, N2_eq, S1, S2)
     Ntot1 = compute_zero_growth_Ntot(r1, a11, a12, F1_star)
@@ -496,7 +511,9 @@ def process_set(idx, params, F):
     logPGR1 = compute_logPGR(r1, Ntot1, a11, a12, F)
     logPGR2 = compute_logPGR(r2, Ntot2, a22, a21, F)
     params_tuple = (r1, r2, a11, a12, a21, a22, N1_eq, N2_eq)
-    return PGR_dominance(F, logPGR1, logPGR2, F1_star, nu, coexist, params_tuple, S1, S2)
+    res = PGR_dominance(F, logPGR1, logPGR2, F1_star, nu, coexist, params_tuple, S1, S2)
+    res['theo_category'] = category
+    return res
 
 
 def main():

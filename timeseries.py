@@ -58,8 +58,8 @@ a12=0.4
 a21=0.1
 a22=0.2
 
-SoS_1 = r1 / ( 1 + ( r2 - 1 ) * a12 / a22  )
-SoS_2 = r2 / ( 1 + ( r1 - 1 ) * a21 / a11  )
+SoS_1 = r2 / ( 1 + ( r2 - 1 ) * a12 / a22  )
+SoS_2 = r1 / ( 1 + ( r1 - 1 ) * a21 / a11  )
 print('SoS_1='+str(SoS_1)+',SoS_2='+str(SoS_2))
 
 # +
@@ -71,8 +71,8 @@ a12 = 0.1
 a21 = 0.3
 a22 = 0.1
 
-SoS_1 = r1 / ( 1 + ( r2 - 1 ) * a12 / a22  )
-SoS_2 = r2 / ( 1 + ( r1 - 1 ) * a21 / a11  )
+SoS_1 = r2 / ( 1 + ( r2 - 1 ) * a12 / a22  )
+SoS_2 = r1 / ( 1 + ( r1 - 1 ) * a21 / a11  )
 print('SoS_1='+str(SoS_1)+',SoS_2='+str(SoS_2))
 
 # +
@@ -84,8 +84,21 @@ a12 = 0.1
 a21 = 0.1
 a22 = 0.1
 
-SoS_1 = r1 / ( 1 + ( r2 - 1 ) * a12 / a22  )
-SoS_2 = r2 / ( 1 + ( r1 - 1 ) * a21 / a11  )
+SoS_1 = r2 / ( 1 + ( r2 - 1 ) * a12 / a22  )
+SoS_2 = r1 / ( 1 + ( r1 - 1 ) * a21 / a11  )
+print('SoS_1='+str(SoS_1)+',SoS_2='+str(SoS_2))
+
+# +
+# N1 wins (according to annplant_2spp_det_rare.txt, N2 should win)
+r1 = 20
+r2 = 15
+a11 = 1.0
+a12 = 0.5
+a21 = 0.4
+a22 = 0.4
+
+SoS_1 = r2 / ( 1 + ( r2 - 1 ) * a12 / a22  )
+SoS_2 = r1 / ( 1 + ( r1 - 1 ) * a21 / a11  )
 print('SoS_1='+str(SoS_1)+',SoS_2='+str(SoS_2))
 
 # +
@@ -170,22 +183,74 @@ def time_simul(r1, r2, a11, a22, a12, a21, y01=5.0, y02=5.0, eps=1e-6):
     return y1, y2
 
 
+def calculate_metrics(r1, r2, a11, a12, a21, a22):
+    scenario = check_analytical_scenarios_beverton_holt(r1, r2, a11, a12, a21, a22)
+    if scenario == 'stable_coexistence':
+        N1_star, N2_star = getEqDensity(r1, r2, a11, a12, a21, a22)
+    elif scenario == 'species1_wins':
+        N1_star = (r1 - 1) / a11 if a11 != 0 else 0.0
+        N2_star = 0.0
+    elif scenario == 'species2_wins':
+        N1_star = 0.0
+        N2_star = (r2 - 1) / a22 if a22 != 0 else 0.0
+    else:  # saddle_point, borderline, or invalid
+        y1, y2 = time_simul(r1, r2, a11, a22, a12, a21, 5.0, 5.0, 1e-6)
+        N1_star, N2_star = y1[-1], y2[-1]
+    S1 = r2 / (1 + (r2-1)*a12/a22)
+    S2 = r1 / (1 + (r1-1)*a21/a11)
+    nu = (N1_star - N2_star) * (S1 - S2) / 2
+    C1 = (r1-1)/a12 - (r2-1)/a22
+    C2 = (r2-1)/a21 - (r1-1)/a11
+    nu_C = (N1_star - N2_star) * (C1 - C2) / 2
+    cond1_left = a12
+    cond1_right = a22 * (r1 - 1) / (r2 - 1)
+    cond2_left = a21
+    cond2_right = a11 * (r2 - 1) / (r1 - 1)
+    if cond1_left < cond1_right and cond2_left > cond2_right:
+        scenario = 'N1 wins'
+    elif cond1_left > cond1_right and cond2_left < cond2_right:
+        scenario = 'N2 wins'
+    elif cond1_left < cond1_right and cond2_left < cond2_right:
+        scenario = 'Stable coexistence'
+    elif cond1_left > cond1_right and cond2_left > cond2_right:
+        scenario = 'Saddle point'
+    else:
+        scenario = 'Borderline'
+    return {
+        'N1*': N1_star, 'N2*': N2_star,
+        'S1': S1, 'S2': S2,
+        'nu': nu,
+        'C1': C1, 'C2': C2,
+        'nu_C': nu_C,
+        'scenario': scenario
+    }
+
+
 def plot_dynamics(r1, r2, a11, a12, a21, a22, y01, y02, focal_species=None, fixed_species=None):
     y1, y2 = time_simul(r1, r2, a11, a22, a12, a21, y01, y02)
     print(y1[-1], y2[-1])
     tmax = len(y1)
     time = np.linspace(1, tmax, tmax)
-    # Plotting N_t
     fig, ax = plt.subplots(1, figsize=(12, 8))
     ax.plot(time, y1, alpha=0.5, marker="o", linewidth=10, markersize=12, color="blue", label='$N_{1}$')
     ax.plot(time, y2, alpha=0.5, marker="o", linewidth=10, markersize=12, color="orange", label='$N_{2}$')
     ax.set(xlabel='Time', ylabel='$N_{t}$')
     ax.axhline(y=0, color='grey', linestyle='--')
     ax.legend()
+    metrics = calculate_metrics(r1, r2, a11, a12, a21, a22)
+    eq_text = (f"$N_1^*={metrics['N1*']:.2g}$, $N_2^*={metrics['N2*']:.2g}$\n"
+               f"$S_1={metrics['S1']:.2g}$, $S_2={metrics['S2']:.2g}$\n"
+               f"$\\nu={int(round(metrics['nu']))}$, $\\nu_C={int(round(metrics['nu_C']))}$\n"
+               f"$C_1={metrics['C1']:.2g}$, $C_2={metrics['C2']:.2g}$\n"
+               f"Coexistence: {metrics['scenario']}")
+    ax.text(0.02, 0.98, eq_text, transform=ax.transAxes, fontsize=20, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    max_val = max(y1.max(), y2.max())
+    ax.set_ylim(top=max_val * 1.5)
     plt.rcParams.update({'font.size': 30})
     plt.tight_layout()
     os.makedirs('img_time_series', exist_ok=True)
     plt.savefig('img_time_series/time_series_r1_'+str(r1)+'_r2_'+str(r2)+'_a11_'+str(a11)+'_a12_'+str(a12)+'_a21_'+str(a21)+'_a22_'+str(a22)+'_N01_'+str(y01)+'_N02_'+str(y02)+'.pdf', format='pdf', dpi=300)
+    plt.savefig('img_time_series/time_series_r1_'+str(r1)+'_r2_'+str(r2)+'_a11_'+str(a11)+'_a12_'+str(a12)+'_a21_'+str(a21)+'_a22_'+str(a22)+'_N01_'+str(y01)+'_N02_'+str(y02)+'.png', format='png', dpi=300)
     plt.show()
 
 
