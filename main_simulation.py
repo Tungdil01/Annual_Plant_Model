@@ -13,11 +13,11 @@
 #     name: python3
 # ---
 
-# ### The code is a modification of the Yenni et al. (2012) analysis:
-# #### - runs the analysis with and without the filter S1 >= 1 & S2 >= 1
-# #### - includes Cushing et al. (2004) analytical results
-#
-# #### their original code: https://github.com/gmyenni/RareStabilizationSimulation
+# ### The code is a modification of the Yenni et al. (2012) deterministic analysis:
+# #### - employs broader range of parameters
+# #### - runs the analysis without the filter S_i >= 1
+# #### - follows the coexistence conditions from Cushing et al. (2004)
+# #### Original code by Yenni et al.: https://github.com/gmyenni/RareStabilizationSimulation
 
 import os
 import numpy as np
@@ -562,10 +562,10 @@ def plot_mcc_comparison(metrics_dict, model_name, metrics, scenario):
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
     plt.tight_layout()
-    os.makedirs('img', exist_ok=True)
-    filename = f'metric_comparison_{model_name}_{scenario}'
-    fig.savefig(f'img/{filename}.pdf', bbox_inches='tight', dpi=300)
-    fig.savefig(f'img/{filename}.png', bbox_inches='tight', dpi=300)
+    # os.makedirs('img', exist_ok=True)
+    # filename = f'metric_comparison_{model_name}_{scenario}'
+    # fig.savefig(f'img/{filename}.pdf', bbox_inches='tight', dpi=300)
+    # fig.savefig(f'img/{filename}.png', bbox_inches='tight', dpi=300)
     plt.close()
 
 
@@ -603,8 +603,8 @@ def plot_roc_curves(metrics_data_dict, outcomes, model_name, metrics, scenario):
     plt.tight_layout()
     os.makedirs('img', exist_ok=True)
     filename = f'roc_curves_{model_name}_{scenario}'
-    fig.savefig(f'img/{filename}.pdf', bbox_inches='tight', dpi=300)
-    fig.savefig(f'img/{filename}.png', bbox_inches='tight', dpi=300)
+    # fig.savefig(f'img/{filename}.pdf', bbox_inches='tight', dpi=300)
+    # fig.savefig(f'img/{filename}.png', bbox_inches='tight', dpi=300)
     plt.close()
 
 

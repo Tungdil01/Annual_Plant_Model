@@ -13,11 +13,10 @@
 #     name: python3
 # ---
 
-# ### The code is a modification of the Yenni et al. (2012) analysis:
-# #### - runs the analysis with and without the filter S1 >= 1 & S2 >= 1
-# #### - includes Cushing et al. (2004) analytical results
-#
-# #### their original code: https://github.com/gmyenni/RareStabilizationSimulation
+# ### The code reproduces the original Yenni et al. (2012) deterministic analysis using their provided file annplant_2spp_det_rare.txt:
+# #### - compares Yenni's classification (S filter + equilibrium formula) to the correct mathematical conditions
+# #### - quantifies misclassification sources and generates contingency tables
+# #### Original code by Yenni et al.: https://github.com/gmyenni/RareStabilizationSimulation
 
 import os
 import time
@@ -442,8 +441,8 @@ def plot_phase_plane():
         ax.tick_params(axis='both', which='major', labelsize=18)
     # Adjust layout and save the figure
     plt.tight_layout()
-    os.makedirs('img', exist_ok=True)
-    plt.savefig('img/phase_plane.pdf', bbox_inches='tight', dpi=300)
+    # os.makedirs('img', exist_ok=True)
+    # plt.savefig('img/phase_plane.pdf', bbox_inches='tight', dpi=300)
     plt.show()
 
 
@@ -756,7 +755,7 @@ def run_pipeline(case):
 
 
 def main():
-    include_broad = False  # set to True to include broad parameter set
+    include_broad = True
     report_classification_from_txt("csv/annplant_2spp_det_rare.txt", True)
     count_legitimate_removed_by_sfilter()
     if include_broad:

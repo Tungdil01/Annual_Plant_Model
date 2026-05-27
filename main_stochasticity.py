@@ -13,11 +13,11 @@
 #     name: python3
 # ---
 
-# ### The code is a modification of the Yenni et al. (2012) analysis:
-# #### - runs the analysis with and without the filter S1 >= 1 & S2 >= 1
-# #### - includes Cushing et al. (2004) analytical results
-#
-# #### their original code: https://github.com/gmyenni/RareStabilizationSimulation
+# ### The code is a modification of the Yenni et al. (2012) stochastic analysis:
+# #### - employs broader range of parameters
+# #### - runs the analysis without the filter S_i >= 1
+# #### - follows the coexistence conditions from Cushing et al. (2004)
+# #### Original code by Yenni et al.: https://github.com/gmyenni/RareStabilizationSimulation
 
 import os
 import itertools

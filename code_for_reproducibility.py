@@ -15,11 +15,10 @@
 
 # ### The code replicates Table 1 of Yenni et al. (2012):
 # #### - keeps the parameters' variations from the code
-# #### - restricts S1 >= 1 & S2 >= 1
+# #### - removes S1 < 1 & S2 < 1
 # #### - extinction criterion N<1
 # #### - keeps the truncated values
-#
-# #### Author's original code: https://github.com/gmyenni/RareStabilizationSimulation
+# #### Original code by Yenni et al.: https://github.com/gmyenni/RareStabilizationSimulation
 
 import os
 import warnings
