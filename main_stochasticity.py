@@ -391,8 +391,8 @@ def analyze_simulation_results(results_df, metric='nu'):
         condition = results_df['nu_C'] > 0
         strong_limitation = results_df[~condition]
         weak_limitation = results_df[condition]
-        weak_label = 'Weak fitness advantage (nu_C > 0)'
-        strong_label = 'Strong fitness advantage (nu_C < 0)'
+        weak_label = 'Weak competitive advantage (nu_C > 0)'
+        strong_label = 'Strong competitive advantage (nu_C < 0)'
     else:
         raise ValueError("metric must be 'nu' or 'nu_C'")
     if len(strong_limitation) == 0 or len(weak_limitation) == 0:
@@ -440,7 +440,7 @@ def print_analysis(results, metric='nu'):
     if metric == 'nu':
         print("SIMULATION ANALYSIS (metric: nu - strength of self-limitation)")
     else:
-        print("SIMULATION ANALYSIS (metric: nu_C - strength of fitness advantage)")
+        print("SIMULATION ANALYSIS (metric: nu_C - strength of competitive advantage)")
     print("="*50)
     weak_count = len(results['weak_cases'])
     strong_count = len(results['strong_cases'])
@@ -525,7 +525,7 @@ def plot_analysis_results(results_df, analysis_results, metric='nu'):
     if metric == 'nu':
         box_labels = [r'Strong self-limitation' + '\n' + r'($\nu < 0$)', r'Weak self-limitation' + '\n' + r'($\nu \geq 0$)']
     else:
-        box_labels = [r'Strong fitness advantage' + '\n' + r'($\nu_{C} < 0$)', r'Weak fitness advantage' + '\n' + r'($\nu_{C} \geq 0$)']
+        box_labels = [r'Strong competitive advantage' + '\n' + r'($\nu_{C} < 0$)', r'Weak competitive advantage' + '\n' + r'($\nu_{C} \geq 0$)']
     bp = ax.boxplot(box_data, labels=box_labels, widths=0.6, patch_artist=True, showmeans=True, meanline=True, showfliers=True)
 #    ax.set_yscale('log')
     ax.set_yscale('function', functions=(np.log,np.exp))
@@ -815,88 +815,87 @@ def plot_examples_stochastic_time_series(metrics, examples, n_simulations=2000, 
     return figures
 
 
-def plot_fig_s3(results_df):
-    valid = results_df[(results_df['rare_species'].isin(['species1_rare', 'species2_rare'])) &
-                       (results_df['N1_eq'] > 0) & (results_df['N2_eq'] > 0)].copy()
-    if len(valid) == 0:
-        print("No valid data for fig_s3")
-        return
-    S_rare = []
-    S_dominant = []
-    rare_density = []
-    dominant_density = []
-    for idx, row in valid.iterrows():
-        if row['rare_species'] == 'species1_rare':
-            S_rare.append(row['SoS1'])
-            S_dominant.append(row['SoS2'])
-            rare_density.append(row['N1_eq'])
-            dominant_density.append(row['N2_eq'])
-        else:
-            S_rare.append(row['SoS2'])
-            S_dominant.append(row['SoS1'])
-            rare_density.append(row['N2_eq'])
-            dominant_density.append(row['N1_eq'])
-    valid['S_rare'] = S_rare
-    valid['S_dominant'] = S_dominant
-    valid['rare_density'] = rare_density
-    valid['dominant_density'] = dominant_density
-    bins = [(1,2), (2,3), (3,4), (4, np.inf)]
-    bin_labels = ['1<S<2', '2<S<3', '3<S<4', 'S>4']
-    fig, axes = plt.subplots(2, 4, figsize=(16, 10))
-    for col, (low, high) in enumerate(bins):
-        if high == np.inf:
-            mask = valid['S_rare'] > low
-        else:
-            mask = (valid['S_rare'] > low) & (valid['S_rare'] < high)
-        subset = valid[mask]
-        # Top row: rare species
-        ax_top = axes[0, col]
-        if len(subset) > 0:
-            x_rare = subset['rare_density'].values
-            y_rare = subset['median_coexistence_time'].values
-            # Bin density into 20 bins, compute median coexistence time per bin
-            n_bins = 20
-            bins_density = np.linspace(x_rare.min(), x_rare.max(), n_bins+1)
-            bin_centers = (bins_density[:-1] + bins_density[1:]) / 2
-            medians = []
-            for i in range(n_bins):
-                mask_bin = (x_rare >= bins_density[i]) & (x_rare < bins_density[i+1])
-                if np.any(mask_bin):
-                    medians.append(np.median(y_rare[mask_bin]))
-                else:
-                    medians.append(np.nan)
-            ax_top.bar(bin_centers, medians, width=np.diff(bins_density)[0], color='blue', alpha=0.6)
-            ax_top.set_ylabel('Median coexistence time')
-        else:
-            ax_top.text(0.5, 0.5, 'No data', ha='center', va='center')
-        ax_top.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
-        # Bottom row: dominant species
-        ax_bottom = axes[1, col]
-        if len(subset) > 0:
-            x_dom = subset['dominant_density'].values
-            y_dom = subset['median_coexistence_time'].values
-            n_bins = 20
-            bins_density = np.linspace(x_dom.min(), x_dom.max(), n_bins+1)
-            bin_centers = (bins_density[:-1] + bins_density[1:]) / 2
-            medians = []
-            for i in range(n_bins):
-                mask_bin = (x_dom >= bins_density[i]) & (x_dom < bins_density[i+1])
-                if np.any(mask_bin):
-                    medians.append(np.median(y_dom[mask_bin]))
-                else:
-                    medians.append(np.nan)
-            ax_bottom.bar(bin_centers, medians, width=np.diff(bins_density)[0], color='red', alpha=0.6)
-            ax_bottom.set_xlabel(bin_labels[col])
-            ax_bottom.set_ylabel('Median coexistence time')
-        else:
-            ax_bottom.text(0.5, 0.5, 'No data', ha='center', va='center')
-        ax_bottom.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
-    plt.tight_layout()
-    os.makedirs('img', exist_ok=True)
-    fig.savefig('img/fig_s3.pdf', bbox_inches='tight', dpi=300)
-    fig.savefig('img/fig_s3.png', bbox_inches='tight', dpi=300)
-    plt.show()
-
+# def plot_fig_s3(results_df):
+#     valid = results_df[(results_df['rare_species'].isin(['species1_rare', 'species2_rare'])) &
+#                        (results_df['N1_eq'] > 0) & (results_df['N2_eq'] > 0)].copy()
+#     if len(valid) == 0:
+#         print("No valid data for fig_s3")
+#         return
+#     S_rare = []
+#     S_dominant = []
+#     rare_density = []
+#     dominant_density = []
+#     for idx, row in valid.iterrows():
+#         if row['rare_species'] == 'species1_rare':
+#             S_rare.append(row['SoS1'])
+#             S_dominant.append(row['SoS2'])
+#             rare_density.append(row['N1_eq'])
+#             dominant_density.append(row['N2_eq'])
+#         else:
+#             S_rare.append(row['SoS2'])
+#             S_dominant.append(row['SoS1'])
+#             rare_density.append(row['N2_eq'])
+#             dominant_density.append(row['N1_eq'])
+#     valid['S_rare'] = S_rare
+#     valid['S_dominant'] = S_dominant
+#     valid['rare_density'] = rare_density
+#     valid['dominant_density'] = dominant_density
+#     bins = [(1,2), (2,3), (3,4), (4, np.inf)]
+#     bin_labels = ['1<S<2', '2<S<3', '3<S<4', 'S>4']
+#     fig, axes = plt.subplots(2, 4, figsize=(16, 10))
+#     for col, (low, high) in enumerate(bins):
+#         if high == np.inf:
+#             mask = valid['S_rare'] > low
+#         else:
+#             mask = (valid['S_rare'] > low) & (valid['S_rare'] < high)
+#         subset = valid[mask]
+#         # Top row: rare species
+#         ax_top = axes[0, col]
+#         if len(subset) > 0:
+#             x_rare = subset['rare_density'].values
+#             y_rare = subset['median_coexistence_time'].values
+#             # Bin density into 20 bins, compute median coexistence time per bin
+#             n_bins = 20
+#             bins_density = np.linspace(x_rare.min(), x_rare.max(), n_bins+1)
+#             bin_centers = (bins_density[:-1] + bins_density[1:]) / 2
+#             medians = []
+#             for i in range(n_bins):
+#                 mask_bin = (x_rare >= bins_density[i]) & (x_rare < bins_density[i+1])
+#                 if np.any(mask_bin):
+#                     medians.append(np.median(y_rare[mask_bin]))
+#                 else:
+#                     medians.append(np.nan)
+#             ax_top.bar(bin_centers, medians, width=np.diff(bins_density)[0], color='blue', alpha=0.6)
+#             ax_top.set_ylabel('Median coexistence time')
+#         else:
+#             ax_top.text(0.5, 0.5, 'No data', ha='center', va='center')
+#         ax_top.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
+#         # Bottom row: dominant species
+#         ax_bottom = axes[1, col]
+#         if len(subset) > 0:
+#             x_dom = subset['dominant_density'].values
+#             y_dom = subset['median_coexistence_time'].values
+#             n_bins = 20
+#             bins_density = np.linspace(x_dom.min(), x_dom.max(), n_bins+1)
+#             bin_centers = (bins_density[:-1] + bins_density[1:]) / 2
+#             medians = []
+#             for i in range(n_bins):
+#                 mask_bin = (x_dom >= bins_density[i]) & (x_dom < bins_density[i+1])
+#                 if np.any(mask_bin):
+#                     medians.append(np.median(y_dom[mask_bin]))
+#                 else:
+#                     medians.append(np.nan)
+#             ax_bottom.bar(bin_centers, medians, width=np.diff(bins_density)[0], color='red', alpha=0.6)
+#             ax_bottom.set_xlabel(bin_labels[col])
+#             ax_bottom.set_ylabel('Median coexistence time')
+#         else:
+#             ax_bottom.text(0.5, 0.5, 'No data', ha='center', va='center')
+#         ax_bottom.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
+#     plt.tight_layout()
+#     os.makedirs('img', exist_ok=True)
+#     fig.savefig('img/fig_s3.pdf', bbox_inches='tight', dpi=300)
+#     fig.savefig('img/fig_s3.png', bbox_inches='tight', dpi=300)
+#     plt.show()
 
 def classify_sign(value):
     return 'negative' if value < 0 else 'positive'
@@ -923,7 +922,7 @@ def main():
         plot_analysis_results(results_df, analysis_results, metric=metric)
     # Plot all stochastic time series
     plot_examples_stochastic_time_series(metrics, examples, n_simulations=2000, max_time=max_time)
-    plot_fig_s3(results_df)
+#    plot_fig_s3(results_df)
 
 
 # def main():

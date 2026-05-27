@@ -556,9 +556,9 @@ def plot_mcc_comparison(metrics_dict, model_name, metrics, scenario):
         height_auc = bar_auc.get_height()
         height_mcc = bar_mcc.get_height()
         if not np.isnan(height_auc):
-            ax1.text(bar_auc.get_x() + bar_auc.get_width()/2., height_auc + 0.01, f'{height_auc:.3g}', ha='center', va='bottom', color='blue')
+            ax1.text(bar_auc.get_x() + bar_auc.get_width()/2., height_auc + 0.01, format_figure_number(height_auc), ha='center', va='bottom', color='blue')
         if not np.isnan(height_mcc):
-            ax2.text(bar_mcc.get_x() + bar_mcc.get_width()/2., height_mcc + 0.01, f'{height_mcc:.3g}', ha='center', va='bottom', color='green')
+            ax2.text(bar_mcc.get_x() + bar_mcc.get_width()/2., height_mcc + 0.01, format_figure_number(height_mcc), ha='center', va='bottom', color='green')
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
     plt.tight_layout()
@@ -589,7 +589,7 @@ def plot_roc_curves(metrics_data_dict, outcomes, model_name, metrics, scenario):
             continue
         fpr, tpr, _ = roc_curve(outcomes_clean, -metric_data_clean)
         roc_auc = auc(fpr, tpr)
-        ax.plot(fpr, tpr, lw=2, label=f"{get_metric_config(metric)} (AUC = {roc_auc:.3g})")
+        ax.plot(fpr, tpr, lw=2, label=f"{get_metric_config(metric)} (AUC = {format_figure_number(roc_auc)})")
     if len(ax.lines) == 0:
         print(f"No ROC curves to plot for {scenario} scenario")
         plt.close(fig)
@@ -627,7 +627,6 @@ def plot_probability_analysis(prob_results, model_name, metrics, scenario):
         neg_given_coex_upper = prob_results.get(f'P_{metric}_negative_given_coexistence_upper', np.nan)
         pos_given_coex_lower = prob_results.get(f'P_{metric}_positive_given_coexistence_lower', np.nan)
         pos_given_coex_upper = prob_results.get(f'P_{metric}_positive_given_coexistence_upper', np.nan)
-        # Convert proportions to percentages
         coex_given_neg = coex_given_neg * 100 if not np.isnan(coex_given_neg) else np.nan
         coex_given_pos = coex_given_pos * 100 if not np.isnan(coex_given_pos) else np.nan
         neg_given_coex = neg_given_coex * 100 if not np.isnan(neg_given_coex) else np.nan
@@ -660,9 +659,9 @@ def plot_probability_analysis(prob_results, model_name, metrics, scenario):
             height1 = bar1.get_height()
             height2 = bar2.get_height()
             if not np.isnan(height1):
-                ax.text(bar1.get_x() + bar1.get_width()/2., height1 + 2, f'{height1:.3g}', ha='center', va='bottom')
+                ax.text(bar1.get_x() + bar1.get_width()/2., height1 + 2, format_figure_number(height1), ha='center', va='bottom')
             if not np.isnan(height2):
-                ax.text(bar2.get_x() + bar2.get_width()/2., height2 + 2, f'{height2:.3g}', ha='center', va='bottom')
+                ax.text(bar2.get_x() + bar2.get_width()/2., height2 + 2, format_figure_number(height2), ha='center', va='bottom')
         ax.set_xticks(x)
         ax.set_xticklabels(conditions, ha='center')
         ax.set_ylabel('Probability (%)')
@@ -699,6 +698,11 @@ def format_prob(value):
         return "1.000"
     else:
         return f"{value:.3g}"
+
+def format_figure_number(value):
+    if np.isnan(value):
+        return "NaN"
+    return f"{value:.1f}"
 
 
 # -
@@ -762,8 +766,8 @@ def print_classification_analysis(metrics_dict, metrics, scenario):
     competitive_exclusion_count = metrics_dict['competitive_exclusion_count']
     coexistence_pct = (coexistence_count / n_cases * 100) if n_cases > 0 else 0
     print(f"   Total cases: {n_cases:,}")
-    print(f"   Coexistence cases: {coexistence_count:,} ({coexistence_pct:.2g}%)")
-    print(f"   Competitive exclusion cases: {competitive_exclusion_count:,} ({100-coexistence_pct:.2g}%)")
+    print(f"   Coexistence cases: {coexistence_count:,} ({coexistence_pct:.3g}%)")
+    print(f"   Competitive exclusion cases: {competitive_exclusion_count:,} ({100-coexistence_pct:.3g}%)")
     print(f"\n2. METRIC COMPARISON (Hypothesis Independent):")
     print(f"   Which metric best separates classes, regardless of direction?")
     print(f"   {'Metric':<15} {'AUC':<10} {'MCC':<10} {'Threshold':<12} {'Direction':<10} {'Accuracy':<10}")
@@ -1035,7 +1039,7 @@ def plot_phase_plane():
 def main():
     n_samples = 20000
     n_jobs = -1
-    bootstrap_replicates = int(0.1*n_samples)
+    bootstrap_replicates = int(0.5*n_samples)
     confidence_level = 0.95
     models = ['bevertonHolt', 'ricker'] # 
     metrics = ['nu', 'nu_C'] # , 'nu_CA', 'nu_ASL', 'nu_a'

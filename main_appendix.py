@@ -82,6 +82,45 @@ def time_simul(r1, r2, a11, a22, a12, a21, y01=5.0, y02=5.0, eps=1e-3):
     return y1, y2
 
 
+def get_theoretical_class(r1, r2, a11, a12, a21, a22, eps=1e-12):
+    # returns dict with keys 'name', 'index', 'A1', 'A2', 'B', 'C' flags (bool)
+    ratio1 = (r1 - 1) / (r2 - 1) if (r2 - 1) != 0 else float('inf')
+    ratio2 = (r2 - 1) / (r1 - 1) if (r1 - 1) != 0 else float('inf')
+    left1 = a12
+    right1 = a22 * ratio1 if ratio1 != float('inf') else float('inf')
+    left2 = a21
+    right2 = a11 * ratio2 if ratio2 != float('inf') else float('inf')
+    if abs(left1 - right1) < eps and abs(left2 - right2) < eps:
+        name = 'Borderline'
+        idx = 4
+        A1 = A2 = B = C = False
+    elif left1 < right1 - eps and left2 > right2 + eps:
+        name = 'Exclusion N2 (A1)'
+        idx = 0
+        A1 = True
+        A2 = B = C = False
+    elif left1 > right1 + eps and left2 < right2 - eps:
+        name = 'Exclusion N1 (A2)'
+        idx = 1
+        A2 = True
+        A1 = B = C = False
+    elif left1 < right1 - eps and left2 < right2 - eps:
+        name = 'Coexistence (B)'
+        idx = 2
+        B = True
+        A1 = A2 = C = False
+    elif left1 > right1 + eps and left2 > right2 + eps:
+        name = 'Saddle point (C)'
+        idx = 3
+        C = True
+        A1 = A2 = B = False
+    else:
+        name = 'Borderline'
+        idx = 4
+        A1 = A2 = B = C = False
+    return {'name': name, 'index': idx, 'A1': A1, 'A2': A2, 'B': B, 'C': C}
+
+
 # # getNFD.r
 
 # +
@@ -99,7 +138,7 @@ def getPCG(r1, r2, a11, a12, a21, a22, N1, N2): # Per capita growth rate calcula
     PGR2 = np.log(newN2) - np.log(N2) if N2 > 0 else np.nan
     return PGR1, PGR2
 
-@jit
+
 def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True):
     S1, S2 = SOS(r1, r2, a11, a12, a21, a22) # Strength of Stabilization
     FE1, FE2 = r1 / r2, r2 / r1 # Fitness equivalence
@@ -111,16 +150,9 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True):
     cor_matrix_sos = np.cov(x, y_sos)
     cor_sos = cor_matrix_sos[0, 1] # Extracting the correlation between N and SoS
     Rank = 0 if N1 == 0 and N2 == 0 else (2 if N1 / (N1 + N2) <= 0.25 else 1)
-    # Equilibrium points
-    E1 = (r1 - 1) / a11
-    E2 = (r2 - 1) / a22
-    P = (r1 - 1) / a12
-    Q = (r2 - 1) / a21
     # Calculate conditions for A, B, C
-    A1 = P > E2 and E1 > Q
-    A2 = E2 > P and Q > E1
-    B = P > E2 and Q > E1
-    C = E2 > P and E1 > Q
+    cls = get_theoretical_class(r1, r2, a11, a12, a21, a22)
+    A1, A2, B, C = cls['A1'], cls['A2'], cls['B'], cls['C']
     # Call getPCG to calculate PGR1 and PGR2
     PGR1, PGR2 = getPCG(r1, r2, a11, a12, a21, a22, N1, N2)
     if extinc_crit_1:
@@ -432,10 +464,12 @@ def load_and_compute_classification(txt_path, extinc_crit_1):
     E2 = (dat['r2'] - 1) / dat['a22']
     P = (dat['r1'] - 1) / dat['a12']
     Q = (dat['r2'] - 1) / dat['a21']
-    dat['A1'] = (P > E2) & (E1 > Q)
-    dat['A2'] = (E2 > P) & (Q > E1)
-    dat['B'] = (P > E2) & (Q > E1)
-    dat['C'] = (E2 > P) & (E1 > Q)
+    # Compute flags using helper
+    A1_list = []; A2_list = []; B_list = []; C_list = []
+    for _, row in dat.iterrows():
+        cls = get_theoretical_class(row['r1'], row['r2'], row['a11'], row['a12'], row['a21'], row['a22'])
+        A1_list.append(cls['A1']); A2_list.append(cls['A2']); B_list.append(cls['B']); C_list.append(cls['C'])
+    dat['A1'] = A1_list; dat['A2'] = A2_list; dat['B'] = B_list; dat['C'] = C_list
     return dat
 
 
@@ -446,53 +480,44 @@ def print_classification_table(rows_data):
 
 def report_classification_from_txt(txt_path, extinc_crit_1):
     dat = load_and_compute_classification(txt_path, extinc_crit_1)
-    total = len(dat)
-    exclusion_mask = dat['A1'] | dat['A2']
-    coex_mask = dat['B']
-    saddle_mask = dat['C']
-    borderline_mask = (~dat['A1']) & (~dat['A2']) & (~dat['B']) & (~dat['C'])
-    n_exclusion = exclusion_mask.sum()
-    n_coex = coex_mask.sum()
-    n_saddle = saddle_mask.sum()
-    n_borderline = borderline_mask.sum()
-    correct_excl = (exclusion_mask & (dat['Coexist'] == 0)).sum()
-    wrong_excl = (exclusion_mask & (dat['Coexist'] == 1)).sum()
-    correct_coex = (coex_mask & (dat['Coexist'] == 1)).sum()
-    wrong_coex = (coex_mask & (dat['Coexist'] == 0)).sum()
-    wrong_saddle_coex = (saddle_mask & (dat['Coexist'] == 1)).sum()
-    wrong_saddle_excl = (saddle_mask & (dat['Coexist'] == 0)).sum()
-    wrong_border_coex = (borderline_mask & (dat['Coexist'] == 1)).sum()
-    wrong_border_excl = (borderline_mask & (dat['Coexist'] == 0)).sum()
-    pct_correct_excl = correct_excl/n_exclusion*100 if n_exclusion>0 else 0.0
-    pct_wrong_excl = wrong_excl/n_exclusion*100 if n_exclusion>0 else 0.0
-    pct_correct_coex = correct_coex/n_coex*100 if n_coex>0 else 0.0
-    pct_wrong_coex = wrong_coex/n_coex*100 if n_coex>0 else 0.0
-    pct_saddle_coex = wrong_saddle_coex/n_saddle*100 if n_saddle>0 else 0.0
-    pct_saddle_excl = wrong_saddle_excl/n_saddle*100 if n_saddle>0 else 0.0
-    pct_border_coex = wrong_border_coex/n_borderline*100 if n_borderline>0 else 0.0
-    pct_border_excl = wrong_border_excl/n_borderline*100 if n_borderline>0 else 0.0
-    total_correct = correct_excl + correct_coex
-    total_wrong = total - total_correct
-    pct_total_correct = total_correct/total*100 if total>0 else 0.0
-    pct_total_wrong = total_wrong/total*100 if total>0 else 0.0
-    print(f"Total parameter sets: {total}")
-    print(f"Stable coexistence (B): {n_coex} ({n_coex/total:.3g})")
-    print(f"Competitive exclusion (total A1+A2): {n_exclusion} ({n_exclusion/total:.3g})")
-    print(f"Saddle equilibrium (C): {n_saddle} ({n_saddle/total:.3g})")
-    print(f"Borderline (equalities): {n_borderline} ({n_borderline/total:.3g})")
-    rows = [
-        {"Theoretical class": "Exclusion (A1+A2)", "Correct (percent)": f"{correct_excl} ({pct_correct_excl:.3g}%)", "Wrong (percent)": f"{wrong_excl} ({pct_wrong_excl:.3g}%)", "Total": n_exclusion},
-        {"Theoretical class": "Coexistence B", "Correct (percent)": f"{correct_coex} ({pct_correct_coex:.3g}%)", "Wrong (percent)": f"{wrong_coex} ({pct_wrong_coex:.3g}%)", "Total": n_coex},
-    ]
-    if n_saddle > 0:
-        rows.append({"Theoretical class": "Saddle C (flagged 'coexist')", "Correct (percent)": "0 (0%)", "Wrong (percent)": f"{wrong_saddle_coex} ({pct_saddle_coex:.3g}%)", "Total": n_saddle})
-        rows.append({"Theoretical class": "Saddle C (flagged 'exclusion')", "Correct (percent)": "0 (0%)", "Wrong (percent)": f"{wrong_saddle_excl} ({pct_saddle_excl:.3g}%)", "Total": n_saddle})
-    if n_borderline > 0:
-        rows.append({"Theoretical class": "Borderline (flagged 'coexist')", "Correct (percent)": "0 (0%)", "Wrong (percent)": f"{wrong_border_coex} ({pct_border_coex:.3g}%)", "Total": n_borderline})
-        rows.append({"Theoretical class": "Borderline (flagged 'exclusion')", "Correct (percent)": "0 (0%)", "Wrong (percent)": f"{wrong_border_excl} ({pct_border_excl:.3g}%)", "Total": n_borderline})
-    rows.append({"Theoretical class": "TOTAL", "Correct (percent)": f"{total_correct} ({pct_total_correct:.3g}%)", "Wrong (percent)": f"{total_wrong} ({pct_total_wrong:.3g}%)", "Total": total})
-    print("\nClassification table:")
-    print_classification_table(rows)
+    # theoretical classes
+    theo_class = []
+    for _, row in dat.iterrows():
+        if row['A1']:
+            theo_class.append('Exclusion N2 (A1)')
+        elif row['A2']:
+            theo_class.append('Exclusion N1 (A2)')
+        elif row['B']:
+            theo_class.append('Coexistence (B)')
+        elif row['C']:
+            theo_class.append('Saddle point (C)')
+        else:
+            theo_class.append('Borderline')
+    # Yenni's classification from txt file (using N1,N2 thresholds)
+    yenni_class = []
+    for _, row in dat.iterrows():
+        if row['N1'] >= 1 and row['N2'] >= 1:
+            yenni_class.append('Coexistence (B)')
+        elif row['N1'] >= 1 and row['N2'] < 1:
+            yenni_class.append('Exclusion N2 (A1)')
+        elif row['N1'] < 1 and row['N2'] >= 1:
+            yenni_class.append('Exclusion N1 (A2)')
+        else:  # both < 1
+            # assign to saddle or borderline based on true class (only way to fill requested rows)
+            if row['C']:
+                yenni_class.append('Saddle point (C)')
+            else:
+                yenni_class.append('Borderline')
+    # build contingency table
+    df_conf = pd.crosstab(pd.Series(yenni_class, name='Yenni_txt'),
+                          pd.Series(theo_class, name='Coexistence Condition'),
+                          dropna=False)
+    # ensure all requested rows and columns exist
+    row_order = ['Exclusion N2 (A1)', 'Exclusion N1 (A2)', 'Coexistence (B)', 'Saddle point (C)', 'Borderline']
+    col_order = ['Exclusion N2 (A1)', 'Exclusion N1 (A2)', 'Coexistence (B)', 'Saddle point (C)', 'Borderline']
+    df_conf = df_conf.reindex(index=row_order, columns=col_order, fill_value=0)
+    print("\nContingency table (Yenni txt classification vs true mathematical class):")
+    print(df_conf.to_string())
 
 
 # def setup_pipeline(filters, base_file, truncate, extinc_crit_1):
@@ -517,136 +542,142 @@ def report_classification_from_df(dat, extinc_crit_1):
             dat['Coexist'] = ((dat['N1'] >= 1) & (dat['N2'] >= 1)).astype(int)
         else:
             dat['Coexist'] = ((dat['N1'] >= 1e-6) & (dat['N2'] >= 1e-6)).astype(int)
-    total = len(dat)
-    exclusion_mask = dat['A1'] | dat['A2']; coex_mask = dat['B']; saddle_mask = dat['C']
-    borderline_mask = (~dat['A1']) & (~dat['A2']) & (~dat['B']) & (~dat['C'])
-    n_exclusion = exclusion_mask.sum(); n_coex = coex_mask.sum(); n_saddle = saddle_mask.sum(); n_borderline = borderline_mask.sum()
-    correct_excl = (exclusion_mask & (dat['Coexist'] == 0)).sum(); wrong_excl = (exclusion_mask & (dat['Coexist'] == 1)).sum()
-    correct_coex = (coex_mask & (dat['Coexist'] == 1)).sum(); wrong_coex = (coex_mask & (dat['Coexist'] == 0)).sum()
-    wrong_saddle_coex = (saddle_mask & (dat['Coexist'] == 1)).sum(); wrong_saddle_excl = (saddle_mask & (dat['Coexist'] == 0)).sum()
-    wrong_border_coex = (borderline_mask & (dat['Coexist'] == 1)).sum(); wrong_border_excl = (borderline_mask & (dat['Coexist'] == 0)).sum()
-    pct_correct_excl = correct_excl/n_exclusion*100 if n_exclusion>0 else 0.0; pct_wrong_excl = wrong_excl/n_exclusion*100 if n_exclusion>0 else 0.0
-    pct_correct_coex = correct_coex/n_coex*100 if n_coex>0 else 0.0; pct_wrong_coex = wrong_coex/n_coex*100 if n_coex>0 else 0.0
-    pct_saddle_coex = wrong_saddle_coex/n_saddle*100 if n_saddle>0 else 0.0; pct_saddle_excl = wrong_saddle_excl/n_saddle*100 if n_saddle>0 else 0.0
-    pct_border_coex = wrong_border_coex/n_borderline*100 if n_borderline>0 else 0.0; pct_border_excl = wrong_border_excl/n_borderline*100 if n_borderline>0 else 0.0
-    total_correct = correct_excl + correct_coex; total_wrong = total - total_correct
-    pct_total_correct = total_correct/total*100 if total>0 else 0.0; pct_total_wrong = total_wrong/total*100 if total>0 else 0.0
-    print(f"Total parameter sets: {total}")
-    print(f"Stable coexistence (B): {n_coex} ({n_coex/total:.3g})")
-    print(f"Competitive exclusion (total A1+A2): {n_exclusion} ({n_exclusion/total:.3g})")
-    print(f"Saddle equilibrium (C): {n_saddle} ({n_saddle/total:.3g})")
-    print(f"Borderline (equalities): {n_borderline} ({n_borderline/total:.3g})")
-    rows = [
-        {"Theoretical class": "Exclusion (A1+A2)", "Correct (percent)": f"{correct_excl} ({pct_correct_excl:.3g}%)", "Wrong (percent)": f"{wrong_excl} ({pct_wrong_excl:.3g}%)", "Total": n_exclusion},
-        {"Theoretical class": "Coexistence B", "Correct (percent)": f"{correct_coex} ({pct_correct_coex:.3g}%)", "Wrong (percent)": f"{wrong_coex} ({pct_wrong_coex:.3g}%)", "Total": n_coex},
-    ]
-    if n_saddle > 0:
-        rows.append({"Theoretical class": "Saddle C (flagged 'coexist')", "Correct (percent)": "0 (0%)", "Wrong (percent)": f"{wrong_saddle_coex} ({pct_saddle_coex:.3g}%)", "Total": n_saddle})
-        rows.append({"Theoretical class": "Saddle C (flagged 'exclusion')", "Correct (percent)": "0 (0%)", "Wrong (percent)": f"{wrong_saddle_excl} ({pct_saddle_excl:.3g}%)", "Total": n_saddle})
-    if n_borderline > 0:
-        rows.append({"Theoretical class": "Borderline (flagged 'coexist')", "Correct (percent)": "0 (0%)", "Wrong (percent)": f"{wrong_border_coex} ({pct_border_coex:.3g}%)", "Total": n_borderline})
-        rows.append({"Theoretical class": "Borderline (flagged 'exclusion')", "Correct (percent)": "0 (0%)", "Wrong (percent)": f"{wrong_border_excl} ({pct_border_excl:.3g}%)", "Total": n_borderline})
-    rows.append({"Theoretical class": "TOTAL", "Correct (percent)": f"{total_correct} ({pct_total_correct:.3g}%)", "Wrong (percent)": f"{total_wrong} ({pct_total_wrong:.3g}%)", "Total": total})
-    print("\nClassification table:")
-    print_classification_table(rows)
+    # theoretical classes
+    theo_class = []
+    for _, row in dat.iterrows():
+        if row['A1']:
+            theo_class.append('Exclusion N2 (A1)')
+        elif row['A2']:
+            theo_class.append('Exclusion N1 (A2)')
+        elif row['B']:
+            theo_class.append('Coexistence (B)')
+        elif row['C']:
+            theo_class.append('Saddle point (C)')
+        else:
+            theo_class.append('Borderline')
+    # classification from dataframe (using N1,N2 thresholds)
+    df_class = []
+    for _, row in dat.iterrows():
+        if row['N1'] >= 1 and row['N2'] >= 1:
+            df_class.append('Coexistence (B)')
+        elif row['N1'] >= 1 and row['N2'] < 1:
+            df_class.append('Exclusion N2 (A1)')
+        elif row['N1'] < 1 and row['N2'] >= 1:
+            df_class.append('Exclusion N1 (A2)')
+        else:  # both < 1
+            if row['C']:
+                df_class.append('Saddle point (C)')
+            else:
+                df_class.append('Borderline')
+    df_conf = pd.crosstab(pd.Series(df_class, name='df'),
+                          pd.Series(theo_class, name='Coexistence Condition'),
+                          dropna=False)
+    row_order = ['Exclusion N2 (A1)', 'Exclusion N1 (A2)', 'Coexistence (B)', 'Saddle point (C)', 'Borderline']
+    col_order = ['Exclusion N2 (A1)', 'Exclusion N1 (A2)', 'Coexistence (B)', 'Saddle point (C)', 'Borderline']
+    df_conf = df_conf.reindex(index=row_order, columns=col_order, fill_value=0)
+    print("\nContingency table (DataFrame classification vs true mathematical class):")
+    print(df_conf.to_string())
 
 
-def generate_comprehensive_table():
+def generate_comprehensive_table(param_keys=None):
+    if param_keys is None:
+        param_keys = [("Narrow ranges (Yenni)", "yenni"), ("Broad ranges", "broad")]
     print("Comprehensive impact breakdown of the three differences:\n")
-    for param_label, param_key in [("Narrow ranges (Yenni)", "yenni"), ("Broad ranges", "broad")]:
+    for param_label, param_key in param_keys:
         mesh = preprocess_data(param_key)
         n_total = len(mesh)
-        A1_count = A2_count = B_count = C_count = border_count = 0
-        yenni_correct_excl = yenni_wrong_excl = 0
-        yenni_correct_coex = yenni_wrong_coex = 0
-        broad_correct_excl = broad_wrong_excl = 0
-        broad_correct_coex = broad_wrong_coex = 0
+        categories = ['Exclusion N2 (A1)', 'Exclusion N1 (A2)', 'Coexistence (B)', 'Saddle point (C)', 'Borderline']
+        yenni_conf = np.zeros((5,5), dtype=int)
+        our_conf = np.zeros((5,5), dtype=int)
         yenni_miscl_sfilter = 0
         yenni_miscl_formula = 0
         yenni_miscl_both = 0
         for row in tqdm(mesh, total=n_total, desc=f"Processing {param_label}"):
             r1, r2, a11, a12, a21, a22 = row
-            E1 = (r1-1)/a11; E2 = (r2-1)/a22; P = (r1-1)/a12; Q = (r2-1)/a21
-            A1 = (P > E2) and (E1 > Q); A2 = (E2 > P) and (Q > E1)
-            B = (P > E2) and (Q > E1); C = (E2 > P) and (E1 > Q)
-            if A1: theo = 'A1'
-            elif A2: theo = 'A2'
-            elif B: theo = 'B'
-            elif C: theo = 'C'
-            else: theo = 'border'
-            if A1 or A2:
-                if A1: A1_count += 1
-                else: A2_count += 1
-                true_N1 = E1 if A1 else 0.0
-                true_N2 = 0.0 if A1 else E2
-                true_coexist = 0
-            elif B:
-                B_count += 1
-                denom = a11*a22 - a12*a21
-                true_N1 = ((r1-1)*a22 - (r2-1)*a12) / denom
-                true_N2 = ((r2-1)*a11 - (r1-1)*a21) / denom
-                true_coexist = 1 if (true_N1 >= 1.0e-6 and true_N2 >= 1.0e-6) else 0
-            elif C:
-                C_count += 1
-                true_N1 = 0.0; true_N2 = 0.0
-                true_coexist = 0
-            else:
-                border_count += 1
-                true_N1 = 0.0; true_N2 = 0.0
-                true_coexist = 0
-            S1, S2 = SOS(r1, r2, a11, a12, a21, a22)
+            cls = get_theoretical_class(r1, r2, a11, a12, a21, a22)
+            theo_idx = cls['index']
+            # Yenni method
             Y_N1, Y_N2 = getEqDensity(r1, r2, a11, a12, a21, a22)
+            S1, S2 = SOS(r1, r2, a11, a12, a21, a22)
             if S1 >= 1 and S2 >= 1:
-                Y_coexist = 1 if (Y_N1 >= 1 and Y_N2 >= 1) else 0
+                if Y_N1 >= 1 and Y_N2 >= 1:
+                    yenni_idx = 2
+                elif Y_N1 >= 1 and Y_N2 < 1:
+                    yenni_idx = 0
+                elif Y_N1 < 1 and Y_N2 >= 1:
+                    yenni_idx = 1
+                else:
+                    if theo_idx == 3:
+                        yenni_idx = 3
+                    else:
+                        yenni_idx = 4
             else:
-                Y_coexist = 0
-            O_N1, O_N2 = true_N1, true_N2
-            O_coexist = true_coexist
-            if theo in ['A1','A2']:
-                if Y_coexist == 0: yenni_correct_excl += 1
-                else: yenni_wrong_excl += 1
-            elif theo == 'B':
-                if Y_coexist == 1: yenni_correct_coex += 1
-                else: yenni_wrong_coex += 1
-            if O_coexist == true_coexist:
-                if theo in ['A1','A2']: broad_correct_excl += 1
-                elif theo == 'B': broad_correct_coex += 1
+                if Y_N1 >= 1 and Y_N2 >= 1:
+                    yenni_idx = 2
+                elif Y_N1 >= 1 and Y_N2 < 1:
+                    yenni_idx = 0
+                elif Y_N1 < 1 and Y_N2 >= 1:
+                    yenni_idx = 1
+                else:
+                    if theo_idx == 3:
+                        yenni_idx = 3
+                    else:
+                        yenni_idx = 4
+            yenni_conf[yenni_idx, theo_idx] += 1
+            # Our method
+            if theo_idx == 0:
+                O_N1 = (r1-1)/a11; O_N2 = 0.0
+            elif theo_idx == 1:
+                O_N1 = 0.0; O_N2 = (r2-1)/a22
+            elif theo_idx == 2:
+                denom = a11*a22 - a12*a21
+                O_N1 = ((r1-1)*a22 - (r2-1)*a12) / denom
+                O_N2 = ((r2-1)*a11 - (r1-1)*a21) / denom
             else:
-                if theo in ['A1','A2']: broad_wrong_excl += 1
-                elif theo == 'B': broad_wrong_coex += 1
-            if Y_coexist != O_coexist:
+                O_N1 = 0.0; O_N2 = 0.0
+            if O_N1 >= 1 and O_N2 >= 1:
+                our_idx = 2
+            elif O_N1 >= 1 and O_N2 < 1:
+                our_idx = 0
+            elif O_N1 < 1 and O_N2 >= 1:
+                our_idx = 1
+            else:
+                if theo_idx == 3:
+                    our_idx = 3
+                else:
+                    our_idx = 4
+            our_conf[our_idx, theo_idx] += 1
+            # Binary coexistence/exclusion for misclassification sources
+            true_coexist_binary = 1 if theo_idx == 2 else 0
+            if S1 >= 1 and S2 >= 1:
+                Y_coexist_binary = 1 if (Y_N1 >= 1 and Y_N2 >= 1) else 0
+            else:
+                Y_coexist_binary = 0
+            if Y_coexist_binary != true_coexist_binary:
                 Y_coexist_nofilter = 1 if (Y_N1 >= 1 and Y_N2 >= 1) else 0
-                if Y_coexist_nofilter == O_coexist:
+                if Y_coexist_nofilter == true_coexist_binary:
                     yenni_miscl_sfilter += 1
-                elif (S1 >= 1 and S2 >= 1) and (Y_coexist == O_coexist):
+                elif (S1 >= 1 and S2 >= 1) and (Y_coexist_binary == true_coexist_binary):
                     pass
                 else:
                     if S1 >= 1 and S2 >= 1:
-                        O_coexist_sfilter = true_coexist
-                        if (O_coexist_sfilter == O_coexist) and (Y_coexist != O_coexist):
+                        O_coexist_sfilter = true_coexist_binary
+                        if (O_coexist_sfilter == true_coexist_binary) and (Y_coexist_binary != true_coexist_binary):
                             yenni_miscl_formula += 1
                         else:
                             yenni_miscl_both += 1
                     else:
                         yenni_miscl_formula += 1
-        n_excl = A1_count + A2_count
-        pct_yenni_excl_correct = yenni_correct_excl/n_excl*100 if n_excl>0 else 0.0
-        pct_yenni_coex_correct = yenni_correct_coex/B_count*100 if B_count>0 else 0.0
-        pct_yenni_total = (yenni_correct_excl+yenni_correct_coex)/(n_excl+B_count)*100 if (n_excl+B_count)>0 else 0.0
-        pct_broad_excl_correct = broad_correct_excl/n_excl*100 if n_excl>0 else 0.0
-        pct_broad_coex_correct = broad_correct_coex/B_count*100 if B_count>0 else 0.0
-        pct_broad_total = (broad_correct_excl+broad_correct_coex)/(n_excl+B_count)*100 if (n_excl+B_count)>0 else 0.0
+        theo_counts = yenni_conf.sum(axis=0)
         print(f"{'='*70}")
         print(f"Parameter set: {param_label} (n={n_total})")
-        print(f"  Theoretical classes: A1={A1_count}, A2={A2_count}, B={B_count}, C={C_count}, Border={border_count}")
-        print(f"\n  Yenni et al. method (S filter on, incorrect formula):")
-        print(f"    Exclusion correct: {yenni_correct_excl} ({pct_yenni_excl_correct:.3g}%)  wrong: {yenni_wrong_excl}")
-        print(f"    Coexistence correct: {yenni_correct_coex} ({pct_yenni_coex_correct:.3g}%)  wrong: {yenni_wrong_coex}")
-        print(f"    Total correct: {yenni_correct_excl+yenni_correct_coex} ({pct_yenni_total:.3g}%)")
-        print(f"\n  Our method (correct formula, no S filter):")
-        print(f"    Exclusion correct: {broad_correct_excl} ({pct_broad_excl_correct:.3g}%)  wrong: {broad_wrong_excl}")
-        print(f"    Coexistence correct: {broad_correct_coex} ({pct_broad_coex_correct:.3g}%)  wrong: {broad_wrong_coex}")
-        print(f"    Total correct: {broad_correct_excl+broad_correct_coex} ({pct_broad_total:.3g}%)")
+        print(f"  Theoretical classes: A1={theo_counts[0]}, A2={theo_counts[1]}, B={theo_counts[2]}, C={theo_counts[3]}, Border={theo_counts[4]}")
+        print("\n  Yenni et al. method (S filter on, incorrect formula):")
+        yenni_df = pd.DataFrame(yenni_conf, index=categories, columns=categories)
+        print(yenni_df.to_string())
+        print("\n  Our method (correct formula, no S filter):")
+        our_df = pd.DataFrame(our_conf, index=categories, columns=categories)
+        print(our_df.to_string())
         print(f"\n  Sources of Yenni's misclassifications:")
         print(f"    Due to S >= 1 filter alone: {yenni_miscl_sfilter}")
         print(f"    Due to incorrect equilibrium formula alone: {yenni_miscl_formula}")
@@ -659,6 +690,38 @@ def generate_filtered_analysis(case):
     filtered_file = f"csv/annplant_2spp_det_rare_filtered_{case}.csv"
     filtered_data = pd.read_csv(filtered_file)
     analyze_coexistence_effect(filtered_data)
+
+
+def count_legitimate_removed_by_sfilter():
+    mesh = preprocess_data('yenni')
+    results = []
+    for row in mesh:
+        r1, r2, a11, a12, a21, a22 = row
+        cls = get_theoretical_class(r1, r2, a11, a12, a21, a22)
+        theo = cls['name']
+        S1, S2 = SOS(r1, r2, a11, a12, a21, a22)
+        passes_filter = (S1 >= 1 and S2 >= 1)
+        results.append((theo, passes_filter))
+    df = pd.DataFrame(results, columns=['theo', 'passes_S_filter'])
+    excl_mask = df['theo'].isin(['Exclusion N2 (A1)', 'Exclusion N1 (A2)'])
+    coex_mask = df['theo'] == 'Coexistence (B)'
+    n_excl_total = excl_mask.sum()
+    n_coex_total = coex_mask.sum()
+    n_excl_passing = (excl_mask & df['passes_S_filter']).sum()
+    n_coex_passing = (coex_mask & df['passes_S_filter']).sum()
+    total_legitimate = n_excl_total + n_coex_total
+    total_passing = n_excl_passing + n_coex_passing
+    pct_excl_total = n_excl_total / total_legitimate * 100 if total_legitimate > 0 else 0.0
+    pct_coex_total = n_coex_total / total_legitimate * 100 if total_legitimate > 0 else 0.0
+    pct_excl_passing = n_excl_passing / total_passing * 100 if total_passing > 0 else 0.0
+    pct_coex_passing = n_coex_passing / total_passing * 100 if total_passing > 0 else 0.0
+    percent_coex_total = n_coex_total / total_legitimate * 100 if total_legitimate > 0 else 0.0
+    percent_coex_passing = n_coex_passing / total_passing * 100 if total_passing > 0 else 0.0
+    print("\nLegitimate parameter sets (A1, A2, B only) removed by Yenni's S>=1 filter:")
+    print(f"{'':<30} {'Yenni (S>=1 filter)':<30} {'Without filter (all legitimate)':<30}")
+    print(f"{'Exclusion (A1+A2)':<30} {n_excl_passing} ({pct_excl_passing:.2g}%){'':<15} {n_excl_total} ({pct_excl_total:.2g}%)")
+    print(f"{'Coexistence (B)':<30} {n_coex_passing} ({pct_coex_passing:.2g}%){'':<15} {n_coex_total} ({pct_coex_total:.2g}%)")
+    print(f"{'% cases of coexistence':<30} {percent_coex_passing:.2g}%{'':<26} {percent_coex_total:.2g}%")
 
 
 def run_pipeline(case):
@@ -681,62 +744,28 @@ def run_pipeline(case):
     base_file = f"csv/annplant_2spp_det_rare_{case}.csv"
     postprocess_results(results, base_file)
     dat = pd.read_csv(base_file)
-    E1 = (dat['r1']-1)/dat['a11']; E2 = (dat['r2']-1)/dat['a22']
-    P = (dat['r1']-1)/dat['a12']; Q = (dat['r2']-1)/dat['a21']
-    dat['A1'] = (P > E2) & (E1 > Q); dat['A2'] = (E2 > P) & (Q > E1)
-    dat['B'] = (P > E2) & (Q > E1); dat['C'] = (E2 > P) & (E1 > Q)
+    # Compute A1,A2,B,C using helper
+    A1_list = []; A2_list = []; B_list = []; C_list = []
+    for _, row in dat.iterrows():
+        cls = get_theoretical_class(row['r1'], row['r2'], row['a11'], row['a12'], row['a21'], row['a22'])
+        A1_list.append(cls['A1']); A2_list.append(cls['A2']); B_list.append(cls['B']); C_list.append(cls['C'])
+    dat['A1'] = A1_list; dat['A2'] = A2_list; dat['B'] = B_list; dat['C'] = C_list
     report_classification_from_df(dat, extinc_crit_1)
     generate_filtered_analysis(case)
     plot_phase_plane()
 
 
-def count_legitimate_removed_by_sfilter():
-    mesh = preprocess_data('yenni')
-    results = []
-    for row in mesh:
-        r1, r2, a11, a12, a21, a22 = row
-        E1 = (r1-1)/a11; E2 = (r2-1)/a22; P = (r1-1)/a12; Q = (r2-1)/a21
-        A1 = (P > E2) and (E1 > Q)
-        A2 = (E2 > P) and (Q > E1)
-        B = (P > E2) and (Q > E1)
-        C = (E2 > P) and (E1 > Q)
-        theo = 'A1' if A1 else ('A2' if A2 else ('B' if B else ('C' if C else 'border')))
-        S1, S2 = SOS(r1, r2, a11, a12, a21, a22)
-        passes_filter = (S1 >= 1 and S2 >= 1)
-        results.append((theo, passes_filter))
-    df = pd.DataFrame(results, columns=['theo', 'passes_S_filter'])
-    excl_mask = df['theo'].isin(['A1', 'A2'])
-    coex_mask = df['theo'] == 'B'
-    n_excl_total = excl_mask.sum()
-    n_coex_total = coex_mask.sum()
-    n_excl_passing = (excl_mask & df['passes_S_filter']).sum()
-    n_coex_passing = (coex_mask & df['passes_S_filter']).sum()
-    n_excl_removed = n_excl_total - n_excl_passing
-    n_coex_removed = n_coex_total - n_coex_passing
-    total_legitimate = n_excl_total + n_coex_total
-    total_removed = n_excl_removed + n_coex_removed
-    pct_excl_removed = n_excl_removed/n_excl_total*100 if n_excl_total>0 else 0.0
-    pct_coex_removed = n_coex_removed/n_coex_total*100 if n_coex_total>0 else 0.0
-    pct_total_removed = total_removed/total_legitimate*100 if total_legitimate>0 else 0.0
-    print("\nLegitimate parameter sets (A1, A2, B only) removed by Yenni's S>=1 filter:")
-    rows = [
-        {"Theoretical class": "Exclusion (A1+A2)", "Removed by S<1": f"{n_excl_removed} ({pct_excl_removed:.3g}%)", "Total legitimate": n_excl_total},
-        {"Theoretical class": "Coexistence B", "Removed by S<1": f"{n_coex_removed} ({pct_coex_removed:.3g}%)", "Total legitimate": n_coex_total},
-        {"Theoretical class": "TOTAL", "Removed by S<1": f"{total_removed} ({pct_total_removed:.3g}%)", "Total legitimate": total_legitimate}
-    ]
-    print_classification_table(rows)
-
-
 def main():
+    include_broad = False  # set to True to include broad parameter set
     report_classification_from_txt("csv/annplant_2spp_det_rare.txt", True)
     count_legitimate_removed_by_sfilter()
-    case = 'compare'
-    if case == 'compare':
+    if include_broad:
         generate_comprehensive_table()
         run_pipeline('yenni')
         run_pipeline('broad')
     else:
-        run_pipeline(case)
+        generate_comprehensive_table(param_keys=[("Narrow ranges (Yenni)", "yenni")])
+        run_pipeline('yenni')
 
 
 if __name__ == "__main__":
