@@ -24,7 +24,7 @@ The file [code_for_reproducibility.py](https://github.com/Tungdil01/Annual_Plant
 
 Yenni, Glenda Marie, Peter Adler, and S. K. Morgan Ernest. 2012. "Strong self-limitation promotes the persistence of rare species." Ecology. 93 (3) pp. 456 - 461. [DOI](http://doi.org/10.1890/11-1087.1)
 
-The original code by Yenni can be found at: [RareStabilizationSimulation](https://github.com/gmyenni/RareStabilizationSimulation/blob/master/Annual%20Plant/)
+The original code by Yenni can be found at: [RareStabilizationSimulation](https://github.com/gmyenni/RareStabilizationSimulation/blob/master/Annual%20Plant/).
 
 ### Auxiliary files
 
