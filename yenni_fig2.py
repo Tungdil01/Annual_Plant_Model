@@ -196,8 +196,8 @@ def generate_all_fig2_candidates(params_df):
         ax.legend(frameon=False)
         ax.set_xlim(0, 50)
         plt.tight_layout()
-        fname = f"fig2_plots/r1_{row.r1:.3g}_r2_{row.r2:.3g}_a11_{row.a11:.3g}_a12_{row.a12:.3g}_a21_{row.a21:.3g}_a22_{row.a22:.3g}_S1_{row.S1:.3g}.png"
-        plt.savefig(fname, dpi=150)
+        # fname = f"fig2_plots/r1_{row.r1:.3g}_r2_{row.r2:.3g}_a11_{row.a11:.3g}_a12_{row.a12:.3g}_a21_{row.a21:.3g}_a22_{row.a22:.3g}_S1_{row.S1:.3g}.png"
+        # plt.savefig(fname, dpi=150)
         plt.close()
     print(f"Saved {len(df_valid)} candidate figures in 'fig2_plots' folder.")
 
@@ -229,8 +229,8 @@ def generate_specific_figure2():
     fig.subplots_adjust(left=0.12, right=0.95, bottom=0.1, top=0.95, hspace=0.3)
     fig.text(0.5, 0.02, 'Year of simulation', ha='center', va='center', fontsize=20)
     fig.text(0.02, 0.5, 'Simulated population size', ha='center', va='center', rotation='vertical', fontsize=20)
-    plt.savefig('img/fig2_yenni.pdf', dpi=300, bbox_inches='tight', pad_inches=0.1)
-    plt.savefig('img/fig2_yenni.png', dpi=300, bbox_inches='tight', pad_inches=0.1)
+    # plt.savefig('img/fig2_yenni.pdf', dpi=300, bbox_inches='tight', pad_inches=0.1)
+    # plt.savefig('img/fig2_yenni.png', dpi=300, bbox_inches='tight', pad_inches=0.1)
     plt.show()
 
 
@@ -312,6 +312,8 @@ def make_fig3(df):
             if row_idx == 1 and col_idx == 1:
                 ax.set_xlabel('ln(median coexistence time)')
     plt.tight_layout()
+    # plt.savefig('img/fig3_yenni.pdf', dpi=300)
+    # plt.savefig('img/fig3_yenni.png', dpi=300)
     plt.show()
 
 
