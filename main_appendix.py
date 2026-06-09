@@ -81,7 +81,7 @@ def time_simul(r1, r2, a11, a22, a12, a21, y01=5.0, y02=5.0, eps=1e-3):
     return y1, y2
 
 
-def get_theoretical_class(r1, r2, a11, a12, a21, a22, eps=1e-12):
+def get_theoreticalretical_class(r1, r2, a11, a12, a21, a22, eps=1e-12):
     # returns dict with keys 'name', 'index', 'A1', 'A2', 'B', 'C' flags (bool)
     ratio1 = (r1 - 1) / (r2 - 1) if (r2 - 1) != 0 else float('inf')
     ratio2 = (r2 - 1) / (r1 - 1) if (r1 - 1) != 0 else float('inf')
@@ -150,7 +150,7 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True):
     cor_sos = cor_matrix_sos[0, 1] # Extracting the correlation between N and SoS
     Rank = 0 if N1 == 0 and N2 == 0 else (2 if N1 / (N1 + N2) <= 0.25 else 1)
     # Calculate conditions for A, B, C
-    cls = get_theoretical_class(r1, r2, a11, a12, a21, a22)
+    cls = get_theoreticalretical_class(r1, r2, a11, a12, a21, a22)
     A1, A2, B, C = cls['A1'], cls['A2'], cls['B'], cls['C']
     # Call getPCG to calculate PGR1 and PGR2
     PGR1, PGR2 = getPCG(r1, r2, a11, a12, a21, a22, N1, N2)
@@ -466,7 +466,7 @@ def load_and_compute_classification(txt_path, extinc_crit_1):
     # Compute flags using helper
     A1_list = []; A2_list = []; B_list = []; C_list = []
     for _, row in dat.iterrows():
-        cls = get_theoretical_class(row['r1'], row['r2'], row['a11'], row['a12'], row['a21'], row['a22'])
+        cls = get_theoreticalretical_class(row['r1'], row['r2'], row['a11'], row['a12'], row['a21'], row['a22'])
         A1_list.append(cls['A1']); A2_list.append(cls['A2']); B_list.append(cls['B']); C_list.append(cls['C'])
     dat['A1'] = A1_list; dat['A2'] = A2_list; dat['B'] = B_list; dat['C'] = C_list
     return dat
@@ -479,41 +479,27 @@ def print_classification_table(rows_data):
 
 def report_classification_from_txt(txt_path, extinc_crit_1):
     dat = load_and_compute_classification(txt_path, extinc_crit_1)
-    # theoretical classes
-    theo_class = []
+    theoretical_class = []
     for _, row in dat.iterrows():
-        if row['A1']:
-            theo_class.append('Exclusion N2 (A1)')
-        elif row['A2']:
-            theo_class.append('Exclusion N1 (A2)')
+        if row['A1'] or row['A2']:
+            theoretical_class.append('Exclusion (A)')
         elif row['B']:
-            theo_class.append('Coexistence (B)')
+            theoretical_class.append('Coexistence (B)')
         elif row['C']:
-            theo_class.append('Saddle point (C)')
+            theoretical_class.append('Saddle point (C)')
         else:
-            theo_class.append('Borderline')
-    # Yenni's classification from txt file (using N1,N2 thresholds)
+            theoretical_class.append('Borderline')
     yenni_class = []
     for _, row in dat.iterrows():
         if row['N1'] >= 1 and row['N2'] >= 1:
-            yenni_class.append('Coexistence (B)')
-        elif row['N1'] >= 1 and row['N2'] < 1:
-            yenni_class.append('Exclusion N2 (A1)')
-        elif row['N1'] < 1 and row['N2'] >= 1:
-            yenni_class.append('Exclusion N1 (A2)')
-        else:  # both < 1
-            # assign to saddle or borderline based on true class (only way to fill requested rows)
-            if row['C']:
-                yenni_class.append('Saddle point (C)')
-            else:
-                yenni_class.append('Borderline')
-    # build contingency table
+            yenni_class.append('Coexistence')
+        else:
+            yenni_class.append('Exclusion')
     df_conf = pd.crosstab(pd.Series(yenni_class, name='Yenni_txt'),
-                          pd.Series(theo_class, name='Coexistence Condition'),
+                          pd.Series(theoretical_class, name='Coexistence Condition'),
                           dropna=False)
-    # ensure all requested rows and columns exist
-    row_order = ['Exclusion N2 (A1)', 'Exclusion N1 (A2)', 'Coexistence (B)', 'Saddle point (C)', 'Borderline']
-    col_order = ['Exclusion N2 (A1)', 'Exclusion N1 (A2)', 'Coexistence (B)', 'Saddle point (C)', 'Borderline']
+    row_order = ['Coexistence', 'Exclusion']
+    col_order = ['Coexistence (B)', 'Exclusion (A)', 'Saddle point (C)', 'Borderline']
     df_conf = df_conf.reindex(index=row_order, columns=col_order, fill_value=0)
     print("\nContingency table (Yenni txt classification vs true mathematical class):")
     print(df_conf.to_string())
@@ -541,19 +527,19 @@ def report_classification_from_df(dat, extinc_crit_1):
             dat['Coexist'] = ((dat['N1'] >= 1) & (dat['N2'] >= 1)).astype(int)
         else:
             dat['Coexist'] = ((dat['N1'] >= 1e-6) & (dat['N2'] >= 1e-6)).astype(int)
-    # theoretical classes
-    theo_class = []
+    # theoreticalretical classes
+    theoretical_class = []
     for _, row in dat.iterrows():
         if row['A1']:
-            theo_class.append('Exclusion N2 (A1)')
+            theoretical_class.append('Exclusion N2 (A1)')
         elif row['A2']:
-            theo_class.append('Exclusion N1 (A2)')
+            theoretical_class.append('Exclusion N1 (A2)')
         elif row['B']:
-            theo_class.append('Coexistence (B)')
+            theoretical_class.append('Coexistence (B)')
         elif row['C']:
-            theo_class.append('Saddle point (C)')
+            theoretical_class.append('Saddle point (C)')
         else:
-            theo_class.append('Borderline')
+            theoretical_class.append('Borderline')
     # classification from dataframe (using N1,N2 thresholds)
     df_class = []
     for _, row in dat.iterrows():
@@ -569,7 +555,7 @@ def report_classification_from_df(dat, extinc_crit_1):
             else:
                 df_class.append('Borderline')
     df_conf = pd.crosstab(pd.Series(df_class, name='df'),
-                          pd.Series(theo_class, name='Coexistence Condition'),
+                          pd.Series(theoretical_class, name='Coexistence Condition'),
                           dropna=False)
     row_order = ['Exclusion N2 (A1)', 'Exclusion N1 (A2)', 'Coexistence (B)', 'Saddle point (C)', 'Borderline']
     col_order = ['Exclusion N2 (A1)', 'Exclusion N1 (A2)', 'Coexistence (B)', 'Saddle point (C)', 'Borderline']
@@ -593,8 +579,8 @@ def generate_comprehensive_table(param_keys=None):
         yenni_miscl_both = 0
         for row in tqdm(mesh, total=n_total, desc=f"Processing {param_label}"):
             r1, r2, a11, a12, a21, a22 = row
-            cls = get_theoretical_class(r1, r2, a11, a12, a21, a22)
-            theo_idx = cls['index']
+            cls = get_theoreticalretical_class(r1, r2, a11, a12, a21, a22)
+            theoretical_idx = cls['index']
             # Yenni method
             Y_N1, Y_N2 = getEqDensity(r1, r2, a11, a12, a21, a22)
             S1, S2 = SOS(r1, r2, a11, a12, a21, a22)
@@ -606,7 +592,7 @@ def generate_comprehensive_table(param_keys=None):
                 elif Y_N1 < 1 and Y_N2 >= 1:
                     yenni_idx = 1
                 else:
-                    if theo_idx == 3:
+                    if theoretical_idx == 3:
                         yenni_idx = 3
                     else:
                         yenni_idx = 4
@@ -618,69 +604,75 @@ def generate_comprehensive_table(param_keys=None):
                 elif Y_N1 < 1 and Y_N2 >= 1:
                     yenni_idx = 1
                 else:
-                    if theo_idx == 3:
+                    if theoretical_idx == 3:
                         yenni_idx = 3
                     else:
                         yenni_idx = 4
-            yenni_conf[yenni_idx, theo_idx] += 1
-            # Our method
-            if theo_idx == 0:
+            yenni_conf[yenni_idx, theoretical_idx] += 1
+            # Our method (use epsilon threshold for coexistence)
+            if param_key == 'broad':
+                coexist_thresh = 1e-6
+            else:
+                coexist_thresh = 1.0
+            if theoretical_idx == 0:
                 O_N1 = (r1-1)/a11; O_N2 = 0.0
-            elif theo_idx == 1:
+            elif theoretical_idx == 1:
                 O_N1 = 0.0; O_N2 = (r2-1)/a22
-            elif theo_idx == 2:
+            elif theoretical_idx == 2:
                 denom = a11*a22 - a12*a21
                 O_N1 = ((r1-1)*a22 - (r2-1)*a12) / denom
                 O_N2 = ((r2-1)*a11 - (r1-1)*a21) / denom
             else:
                 O_N1 = 0.0; O_N2 = 0.0
-            if O_N1 >= 1 and O_N2 >= 1:
+            if O_N1 >= coexist_thresh and O_N2 >= coexist_thresh:
                 our_idx = 2
-            elif O_N1 >= 1 and O_N2 < 1:
+            elif O_N1 >= coexist_thresh and O_N2 < coexist_thresh:
                 our_idx = 0
-            elif O_N1 < 1 and O_N2 >= 1:
+            elif O_N1 < coexist_thresh and O_N2 >= coexist_thresh:
                 our_idx = 1
             else:
-                if theo_idx == 3:
+                if theoretical_idx == 3:
                     our_idx = 3
                 else:
                     our_idx = 4
-            our_conf[our_idx, theo_idx] += 1
-            # Binary coexistence/exclusion for misclassification sources
-            true_coexist_binary = 1 if theo_idx == 2 else 0
-            if S1 >= 1 and S2 >= 1:
-                Y_coexist_binary = 1 if (Y_N1 >= 1 and Y_N2 >= 1) else 0
-            else:
-                Y_coexist_binary = 0
-            if Y_coexist_binary != true_coexist_binary:
-                Y_coexist_nofilter = 1 if (Y_N1 >= 1 and Y_N2 >= 1) else 0
-                if Y_coexist_nofilter == true_coexist_binary:
-                    yenni_miscl_sfilter += 1
-                elif (S1 >= 1 and S2 >= 1) and (Y_coexist_binary == true_coexist_binary):
-                    pass
+            our_conf[our_idx, theoretical_idx] += 1
+            # Binary coexistence/exclusion for misclassification sources (Yenni method only)
+            if param_key == 'yenni':
+                true_coexist_binary = 1 if theoretical_idx == 2 else 0
+                if S1 >= 1 and S2 >= 1:
+                    Y_coexist_binary = 1 if (Y_N1 >= 1 and Y_N2 >= 1) else 0
                 else:
-                    if S1 >= 1 and S2 >= 1:
-                        O_coexist_sfilter = true_coexist_binary
-                        if (O_coexist_sfilter == true_coexist_binary) and (Y_coexist_binary != true_coexist_binary):
-                            yenni_miscl_formula += 1
-                        else:
-                            yenni_miscl_both += 1
+                    Y_coexist_binary = 0
+                if Y_coexist_binary != true_coexist_binary:
+                    Y_coexist_nofilter = 1 if (Y_N1 >= 1 and Y_N2 >= 1) else 0
+                    if Y_coexist_nofilter == true_coexist_binary:
+                        yenni_miscl_sfilter += 1
+                    elif (S1 >= 1 and S2 >= 1) and (Y_coexist_binary == true_coexist_binary):
+                        pass
                     else:
-                        yenni_miscl_formula += 1
-        theo_counts = yenni_conf.sum(axis=0)
+                        if S1 >= 1 and S2 >= 1:
+                            O_coexist_sfilter = true_coexist_binary
+                            if (O_coexist_sfilter == true_coexist_binary) and (Y_coexist_binary != true_coexist_binary):
+                                yenni_miscl_formula += 1
+                            else:
+                                yenni_miscl_both += 1
+                        else:
+                            yenni_miscl_formula += 1
+        theoretical_counts = yenni_conf.sum(axis=0)
         print(f"{'='*70}")
         print(f"Parameter set: {param_label} (n={n_total})")
-        print(f"  Theoretical classes: A1={theo_counts[0]}, A2={theo_counts[1]}, B={theo_counts[2]}, C={theo_counts[3]}, Border={theo_counts[4]}")
-        print("\n  Yenni et al. method (S filter on, incorrect formula):")
+        print(f"  theoretical classes: A1={theoretical_counts[0]}, A2={theoretical_counts[1]}, B={theoretical_counts[2]}, C={theoretical_counts[3]}, Border={theoretical_counts[4]}")
+        print("\n  Yenni et al. method (S filter on, incorrect formula, coexistence defined as N>=1):")
         yenni_df = pd.DataFrame(yenni_conf, index=categories, columns=categories)
         print(yenni_df.to_string())
-        print("\n  Our method (correct formula, no S filter):")
+        print("\n  Our method (correct formula, no S filter, coexistence defined as N>1e-6):")
         our_df = pd.DataFrame(our_conf, index=categories, columns=categories)
         print(our_df.to_string())
-        print(f"\n  Sources of Yenni's misclassifications:")
-        print(f"    Due to S >= 1 filter alone: {yenni_miscl_sfilter}")
-        print(f"    Due to incorrect equilibrium formula alone: {yenni_miscl_formula}")
-        print(f"    Require both factors: {yenni_miscl_both}")
+        if param_key == 'yenni':
+            print(f"\n  Sources of Yenni's misclassifications:")
+            print(f"    Due to S >= 1 filter alone: {yenni_miscl_sfilter}")
+            print(f"    Due to incorrect equilibrium formula alone: {yenni_miscl_formula}")
+            print(f"    Require both factors: {yenni_miscl_both}")
         print(f"{'='*70}\n")
 
 
@@ -696,14 +688,14 @@ def count_legitimate_removed_by_sfilter():
     results = []
     for row in mesh:
         r1, r2, a11, a12, a21, a22 = row
-        cls = get_theoretical_class(r1, r2, a11, a12, a21, a22)
-        theo = cls['name']
+        cls = get_theoreticalretical_class(r1, r2, a11, a12, a21, a22)
+        theoretical = cls['name']
         S1, S2 = SOS(r1, r2, a11, a12, a21, a22)
         passes_filter = (S1 >= 1 and S2 >= 1)
-        results.append((theo, passes_filter))
-    df = pd.DataFrame(results, columns=['theo', 'passes_S_filter'])
-    excl_mask = df['theo'].isin(['Exclusion N2 (A1)', 'Exclusion N1 (A2)'])
-    coex_mask = df['theo'] == 'Coexistence (B)'
+        results.append((theoretical, passes_filter))
+    df = pd.DataFrame(results, columns=['theoretical', 'passes_S_filter'])
+    excl_mask = df['theoretical'].isin(['Exclusion N2 (A1)', 'Exclusion N1 (A2)'])
+    coex_mask = df['theoretical'] == 'Coexistence (B)'
     n_excl_total = excl_mask.sum()
     n_coex_total = coex_mask.sum()
     n_excl_passing = (excl_mask & df['passes_S_filter']).sum()
@@ -718,9 +710,45 @@ def count_legitimate_removed_by_sfilter():
     percent_coex_passing = n_coex_passing / total_passing * 100 if total_passing > 0 else 0.0
     print("\nLegitimate parameter sets (A1, A2, B only) removed by Yenni's S>=1 filter:")
     print(f"{'':<30} {'Yenni (S>=1 filter)':<30} {'Without filter (all legitimate)':<30}")
-    print(f"{'Exclusion (A1+A2)':<30} {n_excl_passing} ({pct_excl_passing:.2g}%){'':<15} {n_excl_total} ({pct_excl_total:.2g}%)")
-    print(f"{'Coexistence (B)':<30} {n_coex_passing} ({pct_coex_passing:.2g}%){'':<15} {n_coex_total} ({pct_coex_total:.2g}%)")
-    print(f"{'% cases of coexistence':<30} {percent_coex_passing:.2g}%{'':<26} {percent_coex_total:.2g}%")
+    print(f"{'Coexistence (B)':<30} {n_coex_passing} ({pct_coex_passing:.2g}%){'':<15} {n_coex_total} ({pct_coex_total:.3g}%)")
+    print(f"{'Exclusion (A1+A2)':<30} {n_excl_passing} ({pct_excl_passing:.2g}%){'':<15} {n_excl_total} ({pct_excl_total:.3g}%)")
+    print(f"{'% cases of coexistence':<30} {percent_coex_passing:.3g}%{'':<26} {percent_coex_total:.3g}%")
+
+
+def count_coexistence_stats():
+    col_names = ['ID','l1','l2','a11','a12','a21','a22','N1','N2','E1','S1','E2','S2','Rank','CoexistRank','Asy','cor','Rare']
+    yenni_df = pd.read_csv("csv/annplant_2spp_det_rare.txt", header=None, names=col_names)
+    for c in ['N1','N2']:
+        yenni_df[c] = pd.to_numeric(yenni_df[c], errors='coerce')
+    yenni_coex = yenni_df[(yenni_df['N1'] >= 1) & (yenni_df['N2'] >= 1)].copy()
+    yenni_rare = yenni_coex['N1']
+    yenni_common = yenni_coex['N2']
+    broad_df = pd.read_csv("csv/annplant_2spp_det_rare_broad.csv")
+    if 'Coexist' in broad_df.columns:
+        broad_coex = broad_df[broad_df['Coexist'] == 1].copy()
+    else:
+        for c in ['N1','N2']:
+            broad_df[c] = pd.to_numeric(broad_df[c], errors='coerce')
+        broad_coex = broad_df[(broad_df['N1'] > 1e-6) & (broad_df['N2'] > 1e-6)].copy()
+    if 'Rank' in broad_coex.columns:
+        broad_rare = broad_coex.apply(lambda row: row['N1'] if row['Rank'] == 2 else row['N2'], axis=1)
+        broad_common = broad_coex.apply(lambda row: row['N2'] if row['Rank'] == 2 else row['N1'], axis=1)
+    else:
+        broad_rare = broad_coex['N1']
+        broad_common = broad_coex['N2']
+    print("\nCoexistence cases (Yenni: N>=1; Broad: N>1e-6):")
+    print(f"Yenni et al. (2012): n={len(yenni_coex)}")
+    if len(yenni_coex) > 0:
+        print(f"  N_rare mean={yenni_rare.mean():.2f}, median={yenni_rare.median():.2f}")
+        print(f"  N_common mean={yenni_common.mean():.2f}, median={yenni_common.median():.2f}")
+    else:
+        print("  No coexistence cases found.")
+    print(f"\nBroad ranges (our study): n={len(broad_coex)}")
+    if len(broad_coex) > 0:
+        print(f"  N_rare mean={broad_rare.mean():.2f}, median={broad_rare.median():.2f}")
+        print(f"  N_common mean={broad_common.mean():.2f}, median={broad_common.median():.2f}")
+    else:
+        print("  No coexistence cases found.")
 
 
 def run_pipeline(case):
@@ -746,7 +774,7 @@ def run_pipeline(case):
     # Compute A1,A2,B,C using helper
     A1_list = []; A2_list = []; B_list = []; C_list = []
     for _, row in dat.iterrows():
-        cls = get_theoretical_class(row['r1'], row['r2'], row['a11'], row['a12'], row['a21'], row['a22'])
+        cls = get_theoreticalretical_class(row['r1'], row['r2'], row['a11'], row['a12'], row['a21'], row['a22'])
         A1_list.append(cls['A1']); A2_list.append(cls['A2']); B_list.append(cls['B']); C_list.append(cls['C'])
     dat['A1'] = A1_list; dat['A2'] = A2_list; dat['B'] = B_list; dat['C'] = C_list
     report_classification_from_df(dat, extinc_crit_1)
@@ -762,6 +790,7 @@ def main():
         generate_comprehensive_table()
         run_pipeline('yenni')
         run_pipeline('broad')
+        count_coexistence_stats()
     else:
         generate_comprehensive_table(param_keys=[("Narrow ranges (Yenni)", "yenni")])
         run_pipeline('yenni')
