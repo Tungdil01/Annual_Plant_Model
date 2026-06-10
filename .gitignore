@@ -1,8 +1,0 @@
-.gitignore
-refs/
-old/
-png/
-R/
-R_equivalent/
-.env/
-.ipynb_checkpoints/
