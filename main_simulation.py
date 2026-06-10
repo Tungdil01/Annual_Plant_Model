@@ -25,6 +25,7 @@ import pandas as pd
 from scipy.stats import qmc, norm
 from joblib import Parallel, delayed
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import seaborn as sns
 from sklearn.metrics import matthews_corrcoef
 from sklearn.metrics import roc_curve, auc
@@ -608,65 +609,92 @@ def plot_roc_curves(metrics_data_dict, outcomes, model_name, metrics, scenario):
     plt.close()
 
 
+# +
+_fig1_cache = {}
+
+def _plot_probability_on_ax(ax, prob_results, metric, config):
+    coex_given_neg = prob_results.get(f'P_coexistence_given_{metric}_negative', np.nan)
+    coex_given_pos = prob_results.get(f'P_coexistence_given_{metric}_positive', np.nan)
+    neg_given_coex = prob_results.get(f'P_{metric}_negative_given_coexistence', np.nan)
+    pos_given_coex = prob_results.get(f'P_{metric}_positive_given_coexistence', np.nan)
+    coex_given_neg_lower = prob_results.get(f'P_coexistence_given_{metric}_negative_lower', np.nan)
+    coex_given_neg_upper = prob_results.get(f'P_coexistence_given_{metric}_negative_upper', np.nan)
+    coex_given_pos_lower = prob_results.get(f'P_coexistence_given_{metric}_positive_lower', np.nan)
+    coex_given_pos_upper = prob_results.get(f'P_coexistence_given_{metric}_positive_upper', np.nan)
+    neg_given_coex_lower = prob_results.get(f'P_{metric}_negative_given_coexistence_lower', np.nan)
+    neg_given_coex_upper = prob_results.get(f'P_{metric}_negative_given_coexistence_upper', np.nan)
+    pos_given_coex_lower = prob_results.get(f'P_{metric}_positive_given_coexistence_lower', np.nan)
+    pos_given_coex_upper = prob_results.get(f'P_{metric}_positive_given_coexistence_upper', np.nan)
+    coex_given_neg = coex_given_neg * 100 if not np.isnan(coex_given_neg) else np.nan
+    coex_given_pos = coex_given_pos * 100 if not np.isnan(coex_given_pos) else np.nan
+    neg_given_coex = neg_given_coex * 100 if not np.isnan(neg_given_coex) else np.nan
+    pos_given_coex = pos_given_coex * 100 if not np.isnan(pos_given_coex) else np.nan
+    coex_given_neg_lower = coex_given_neg_lower * 100 if not np.isnan(coex_given_neg_lower) else np.nan
+    coex_given_neg_upper = coex_given_neg_upper * 100 if not np.isnan(coex_given_neg_upper) else np.nan
+    coex_given_pos_lower = coex_given_pos_lower * 100 if not np.isnan(coex_given_pos_lower) else np.nan
+    coex_given_pos_upper = coex_given_pos_upper * 100 if not np.isnan(coex_given_pos_upper) else np.nan
+    neg_given_coex_lower = neg_given_coex_lower * 100 if not np.isnan(neg_given_coex_lower) else np.nan
+    neg_given_coex_upper = neg_given_coex_upper * 100 if not np.isnan(neg_given_coex_upper) else np.nan
+    pos_given_coex_lower = pos_given_coex_lower * 100 if not np.isnan(pos_given_coex_lower) else np.nan
+    pos_given_coex_upper = pos_given_coex_upper * 100 if not np.isnan(pos_given_coex_upper) else np.nan
+    x = np.arange(2)
+    width = 0.35
+    conditions = [f'{config} < 0', f'{config} \u2265 0']
+    coex_given_cond = [coex_given_neg, coex_given_pos]
+    cond_given_coex = [neg_given_coex, pos_given_coex]
+    bars1 = ax.bar(x - width/2, coex_given_cond, width, label='P(Coexistence | Condition)', edgecolor='black', alpha=0.7)
+    bars2 = ax.bar(x + width/2, cond_given_coex, width, label='P(Condition | Coexistence)', edgecolor='black', alpha=0.7)
+    error_bars_data = [
+        (x[0] - width/2, coex_given_neg, coex_given_neg_lower, coex_given_neg_upper),
+        (x[1] - width/2, coex_given_pos, coex_given_pos_lower, coex_given_pos_upper),
+        (x[0] + width/2, neg_given_coex, neg_given_coex_lower, neg_given_coex_upper),
+        (x[1] + width/2, pos_given_coex, pos_given_coex_lower, pos_given_coex_upper)
+    ]
+    for x_pos, val, lower, upper in error_bars_data:
+        if not np.isnan(lower) and not np.isnan(upper):
+            ax.errorbar(x_pos, val, yerr=[[val - lower], [upper - val]], fmt='none', ecolor='black', capsize=3, capthick=1)
+    for i, (bar1, bar2) in enumerate(zip(bars1, bars2)):
+        height1 = bar1.get_height()
+        height2 = bar2.get_height()
+        if not np.isnan(height1):
+            ax.text(bar1.get_x() + bar1.get_width()/2., height1 + 2, format_figure_number(height1), ha='center', va='bottom')
+        if not np.isnan(height2):
+            ax.text(bar2.get_x() + bar2.get_width()/2., height2 + 2, format_figure_number(height2), ha='center', va='bottom')
+    ax.set_xticks(x)
+    ax.set_xticklabels(conditions, ha='center')
+    ax.set_ylabel('Probability (%)')
+    ax.legend()
+    ax.set_ylim(0, 110)
+
+
+# -
+
 def plot_probability_analysis(prob_results, model_name, metrics, scenario):
     for metric in metrics:
         has_data = f'P_coexistence_given_{metric}_negative' in prob_results
         if not has_data:
             continue
         config = get_metric_config(metric)
+        if scenario == 'rarity' and model_name == 'bevertonHolt':
+            if metric == 'nu':
+                fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+                _plot_probability_on_ax(axes[0], prob_results, metric, config)
+                _fig1_cache['fig1'] = {'fig': fig, 'axes': axes, 'plotted': ['nu']}
+                continue
+            elif metric == 'nu_C' and 'fig1' in _fig1_cache:
+                cache = _fig1_cache.pop('fig1')
+                fig = cache['fig']
+                axes = cache['axes']
+                _plot_probability_on_ax(axes[1], prob_results, metric, config)
+                axes[0].text(0.02, 0.98, '(a)', transform=axes[0].transAxes, fontsize=16, fontweight='bold', va='top')
+                axes[1].text(0.02, 0.98, '(b)', transform=axes[1].transAxes, fontsize=16, fontweight='bold', va='top')
+                os.makedirs('img', exist_ok=True)
+                fig.savefig('img/fig_1.pdf', bbox_inches='tight', dpi=300)
+                fig.savefig('img/fig_1.png', bbox_inches='tight', dpi=300)
+                plt.close(fig)
+                continue
         fig, ax = plt.subplots(1, 1, figsize=(6, 5))
-        coex_given_neg = prob_results[f'P_coexistence_given_{metric}_negative']
-        coex_given_pos = prob_results.get(f'P_coexistence_given_{metric}_positive', np.nan)
-        neg_given_coex = prob_results.get(f'P_{metric}_negative_given_coexistence', np.nan)
-        pos_given_coex = prob_results.get(f'P_{metric}_positive_given_coexistence', np.nan)
-        coex_given_neg_lower = prob_results.get(f'P_coexistence_given_{metric}_negative_lower', np.nan)
-        coex_given_neg_upper = prob_results.get(f'P_coexistence_given_{metric}_negative_upper', np.nan)
-        coex_given_pos_lower = prob_results.get(f'P_coexistence_given_{metric}_positive_lower', np.nan)
-        coex_given_pos_upper = prob_results.get(f'P_coexistence_given_{metric}_positive_upper', np.nan)
-        neg_given_coex_lower = prob_results.get(f'P_{metric}_negative_given_coexistence_lower', np.nan)
-        neg_given_coex_upper = prob_results.get(f'P_{metric}_negative_given_coexistence_upper', np.nan)
-        pos_given_coex_lower = prob_results.get(f'P_{metric}_positive_given_coexistence_lower', np.nan)
-        pos_given_coex_upper = prob_results.get(f'P_{metric}_positive_given_coexistence_upper', np.nan)
-        coex_given_neg = coex_given_neg * 100 if not np.isnan(coex_given_neg) else np.nan
-        coex_given_pos = coex_given_pos * 100 if not np.isnan(coex_given_pos) else np.nan
-        neg_given_coex = neg_given_coex * 100 if not np.isnan(neg_given_coex) else np.nan
-        pos_given_coex = pos_given_coex * 100 if not np.isnan(pos_given_coex) else np.nan
-        coex_given_neg_lower = coex_given_neg_lower * 100 if not np.isnan(coex_given_neg_lower) else np.nan
-        coex_given_neg_upper = coex_given_neg_upper * 100 if not np.isnan(coex_given_neg_upper) else np.nan
-        coex_given_pos_lower = coex_given_pos_lower * 100 if not np.isnan(coex_given_pos_lower) else np.nan
-        coex_given_pos_upper = coex_given_pos_upper * 100 if not np.isnan(coex_given_pos_upper) else np.nan
-        neg_given_coex_lower = neg_given_coex_lower * 100 if not np.isnan(neg_given_coex_lower) else np.nan
-        neg_given_coex_upper = neg_given_coex_upper * 100 if not np.isnan(neg_given_coex_upper) else np.nan
-        pos_given_coex_lower = pos_given_coex_lower * 100 if not np.isnan(pos_given_coex_lower) else np.nan
-        pos_given_coex_upper = pos_given_coex_upper * 100 if not np.isnan(pos_given_coex_upper) else np.nan
-        x = np.arange(2)
-        width = 0.35
-        conditions = [f'{config} < 0', f'{config} \u2265 0']
-        coex_given_cond = [coex_given_neg, coex_given_pos]
-        cond_given_coex = [neg_given_coex, pos_given_coex]
-        bars1 = ax.bar(x - width/2, coex_given_cond, width, label='P(Coexistence | Condition)', edgecolor='black', alpha=0.7)
-        bars2 = ax.bar(x + width/2, cond_given_coex, width, label='P(Condition | Coexistence)', edgecolor='black', alpha=0.7)
-        error_bars_data = [
-            (x[0] - width/2, coex_given_neg, coex_given_neg_lower, coex_given_neg_upper),
-            (x[1] - width/2, coex_given_pos, coex_given_pos_lower, coex_given_pos_upper),
-            (x[0] + width/2, neg_given_coex, neg_given_coex_lower, neg_given_coex_upper),
-            (x[1] + width/2, pos_given_coex, pos_given_coex_lower, pos_given_coex_upper)
-        ]
-        for x_pos, val, lower, upper in error_bars_data:
-            if not np.isnan(lower) and not np.isnan(upper):
-                ax.errorbar(x_pos, val, yerr=[[val - lower], [upper - val]], fmt='none', ecolor='black', capsize=3, capthick=1)
-        for i, (bar1, bar2) in enumerate(zip(bars1, bars2)):
-            height1 = bar1.get_height()
-            height2 = bar2.get_height()
-            if not np.isnan(height1):
-                ax.text(bar1.get_x() + bar1.get_width()/2., height1 + 2, format_figure_number(height1), ha='center', va='bottom')
-            if not np.isnan(height2):
-                ax.text(bar2.get_x() + bar2.get_width()/2., height2 + 2, format_figure_number(height2), ha='center', va='bottom')
-        ax.set_xticks(x)
-        ax.set_xticklabels(conditions, ha='center')
-        ax.set_ylabel('Probability (%)')
-        ax.legend()
-        ax.set_ylim(0, 110)
+        _plot_probability_on_ax(ax, prob_results, metric, config)
         plt.tight_layout()
         os.makedirs('img', exist_ok=True)
         if scenario == 'rarity' and metric == 'nu' and model_name == 'bevertonHolt':
@@ -702,6 +730,8 @@ def format_prob(value):
 def format_figure_number(value):
     if np.isnan(value):
         return "NaN"
+    if abs(value - 100.0) < 0.01:
+        return "100"
     return f"{value:.1f}"
 
 

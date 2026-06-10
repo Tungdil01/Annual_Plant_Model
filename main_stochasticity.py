@@ -514,52 +514,64 @@ def save_results(results_df, filename="demographic_stochasticity_results.csv"):
     print(f"\nDetailed results saved to: {filepath}")
 
 
-def plot_analysis_results(results_df, analysis_results, metric='nu'):
-    fig, ax = plt.subplots(figsize=(8, 6))
-    strong_rates = analysis_results['strong_cases']['mean_coexistence_time'].values
-    weak_rates = analysis_results['weak_cases']['mean_coexistence_time'].values
-    strong_rates = strong_rates[strong_rates > 0]
-    weak_rates = weak_rates[weak_rates > 0]
-    box_data = [strong_rates, weak_rates]
-    colors = ['red', 'blue']
-    if metric == 'nu':
-        box_labels = [r'Strong self-limitation' + '\n' + r'($\nu < 0$)', r'Weak self-limitation' + '\n' + r'($\nu \geq 0$)']
-    else:
-        box_labels = [r'Strong competitive advantage' + '\n' + r'($\nu_{C} < 0$)', r'Weak competitive advantage' + '\n' + r'($\nu_{C} \geq 0$)']
-    bp = ax.boxplot(box_data, labels=box_labels, widths=0.6, patch_artist=True, showmeans=True, meanline=True, showfliers=True)
-#    ax.set_yscale('log')
-    ax.set_yscale('function', functions=(np.log,np.exp))
-    for i, patch in enumerate(bp['boxes']):
-        patch.set_facecolor(colors[i])
-        patch.set_alpha(0.6)
-        patch.set_edgecolor('black')
-        patch.set_linewidth(2)
-    for median in bp['medians']:
-        median.set_color('black')
-        median.set_linewidth(2)
-        median.set_linestyle('--')
-    for mean in bp['means']:
-        mean.set_color('orange')
-        mean.set_linewidth(2)
-        mean.set_linestyle('-')
-    ax.set_ylabel('Log(Mean Coexistence Time)')
-    legend_elements = [
-        Line2D([0], [0], color='orange', linewidth=2, label='Mean'),
-        Line2D([0], [0], color='black', linewidth=2, linestyle='--', label='Median')
-    ]
-    ax.legend(handles=legend_elements, loc='upper right')
-    plt.tight_layout()
-    os.makedirs('img', exist_ok=True)
-    if metric == 'nu':
-        base_name = 'fig_2a'
-    elif metric == 'nu_C':
-        base_name = 'fig_2b'
-    else:
-        base_name = f'demographic_stochasticity_analysis_{metric}_log'
-    fig.savefig(f'img/{base_name}.pdf', bbox_inches='tight', dpi=300)
-    fig.savefig(f'img/{base_name}.png', bbox_inches='tight', dpi=300)
-    plt.show()
+# +
+_fig2_cache = {}
 
+def plot_analysis_results(results_df, analysis_results, metric='nu'):
+    global _fig2_cache
+    if metric == 'nu':
+        _fig2_cache['nu'] = analysis_results
+        return
+    elif metric == 'nu_C':
+        if 'nu' not in _fig2_cache:
+            _fig2_cache['nu_C'] = analysis_results
+            return
+        fig, axes = plt.subplots(1, 2, figsize=(12, 6), sharey=True)
+        for idx, m in enumerate(['nu', 'nu_C']):
+            ax = axes[idx]
+            curr_res = _fig2_cache[m] if m == 'nu' else analysis_results
+            strong_rates = curr_res['strong_cases']['mean_coexistence_time'].values
+            weak_rates = curr_res['weak_cases']['mean_coexistence_time'].values
+            strong_rates = strong_rates[strong_rates > 0]
+            weak_rates = weak_rates[weak_rates > 0]
+            box_data = [strong_rates, weak_rates]
+            colors = ['red', 'blue']
+            if m == 'nu':
+                box_labels = [r'Strong self-limitation' + '\n' + r'($\nu < 0$)', r'Weak self-limitation' + '\n' + r'($\nu \geq 0$)']
+            else:
+                box_labels = [r'Strong competitive' + '\n' + r'advantage ($\nu_{C} < 0$)', r'Weak competitive' + '\n' + r'advantage ($\nu_{C} \geq 0$)']
+            bp = ax.boxplot(box_data, labels=box_labels, widths=0.6, patch_artist=True, showmeans=True, meanline=True, showfliers=True)
+            ax.set_yscale('function', functions=(np.log,np.exp))
+            for i, patch in enumerate(bp['boxes']):
+                patch.set_facecolor(colors[i])
+                patch.set_alpha(0.6)
+                patch.set_edgecolor('black')
+                patch.set_linewidth(2)
+            for median in bp['medians']:
+                median.set_color('black')
+                median.set_linewidth(2)
+                median.set_linestyle('--')
+            for mean in bp['means']:
+                mean.set_color('orange')
+                mean.set_linewidth(2)
+                mean.set_linestyle('-')
+            ax.set_ylabel('Log(Mean Coexistence Time)')
+            if idx == 1:
+                legend_elements = [
+                    Line2D([0], [0], color='orange', linewidth=2, label='Mean'),
+                    Line2D([0], [0], color='black', linewidth=2, linestyle='--', label='Median')
+                ]
+                ax.legend(handles=legend_elements, loc='upper right')
+            ax.text(0.02, 0.98, f'({chr(97+idx)})', transform=ax.transAxes, fontsize=18, fontweight='bold', va='top')
+        plt.tight_layout()
+        os.makedirs('img', exist_ok=True)
+        fig.savefig('img/fig_2.pdf', bbox_inches='tight', dpi=300)
+        fig.savefig('img/fig_2.png', bbox_inches='tight', dpi=300)
+        plt.show()
+        _fig2_cache.clear()
+
+
+# -
 
 def time_simul(r1, r2, a11, a22, a12, a21, y01=5.0, y02=5.0, eps=1e-3):
     y1 = np.array([y01], dtype=np.float64)
@@ -763,21 +775,21 @@ def plot_stochastic_time_series(ax, time_series_rare, time_steps, survival_mask,
 
 
 def plot_examples_stochastic_time_series(metrics, examples, n_simulations=2000, max_time=500):
-    figures = {}
-    axes_dict = {}
+    np.random.seed(1234)
     plt.rcParams.update({'font.size': 24})
-    for metric in metrics:
-        fig, axes = plt.subplots(2, 1, figsize=(12, 12), constrained_layout=True)
-        figures[metric] = fig
-        axes_dict[metric] = axes
+    fig, axes = plt.subplots(2, 2, figsize=(16, 12), constrained_layout=True)
     metric_labels = {'nu': r'$\nu$', 'nu_C': r'$\nu_{C}$'}
+    subplot_labels = ['(a)', '(b)', '(c)', '(d)']
+    label_idx = 0
     for row_idx, sign in enumerate(['negative', 'positive']):
-        for metric in metrics:
-            ax = axes_dict[metric][row_idx]
+        for col_idx, metric in enumerate(metrics):
+            ax = axes[row_idx, col_idx]
             row = examples[metric][sign]['coexistence']
             metric_label = metric_labels.get(metric, metric)
             sign_symbol = '< 0' if sign == 'negative' else r'\geq 0'
             annotation_text = fr'{metric_label}$\ {sign_symbol}$'
+            combined_label = f'{subplot_labels[label_idx]} {annotation_text}'
+            label_idx += 1
             if row is not None:
                 params = [row['r1'], row['r2'], row['a11'], row['a22'], row['a12'], row['a21']]
                 print(f"\n{metric_label} {sign_symbol}:")
@@ -786,7 +798,7 @@ def plot_examples_stochastic_time_series(metrics, examples, n_simulations=2000, 
                 print(f"  a12={params[4]:.3g}, a21={params[5]:.3g}")
                 print(f"  N1_eq={row['N1_eq']:.3g}, N2_eq={row['N2_eq']:.3g}")
                 print(f"  {metric}={row[metric]:.3g}")
-                seed_offset = row_idx * 1000 + 500
+                seed_offset = row_idx * 1000 + 500 + col_idx * 100
                 time_series_rare, time_series_common, time_steps, rare_status, survival_mask, extinction_times = demographic_stochasticity_time_series(
                     params, n_simulations, max_time, seed_offset=seed_offset
                 )
@@ -794,7 +806,7 @@ def plot_examples_stochastic_time_series(metrics, examples, n_simulations=2000, 
                     plot_stochastic_time_series(ax, time_series_rare, time_steps, survival_mask, extinction_times, max_time, metric, row_idx)
             else:
                 ax.text(0.5, 0.5, 'No example found', horizontalalignment='center', verticalalignment='center', transform=ax.transAxes, fontsize=24)
-            ax.annotate(annotation_text, xy=(0.5, 0.95), xycoords='axes fraction', ha='center', fontsize=24)
+            ax.text(0.02, 0.98, combined_label, transform=ax.transAxes, fontsize=24, fontweight='bold', va='top')
             if row_idx == 1:
                 ax.set_xlabel('Time', fontsize=24)
             else:
@@ -802,17 +814,10 @@ def plot_examples_stochastic_time_series(metrics, examples, n_simulations=2000, 
             ax.set_ylabel('Abundance', fontsize=24)
             ax.tick_params(axis='both', which='major', labelsize=24)
     os.makedirs('img', exist_ok=True)
-    for metric, fig in figures.items():
-        if metric == 'nu':
-            base_name = 'fig_3a'
-        elif metric == 'nu_C':
-            base_name = 'fig_3b'
-        else:
-            base_name = f'stochastic_time_series_{metric}'
-        fig.savefig(f'img/{base_name}.pdf', bbox_inches='tight', dpi=300)
-        fig.savefig(f'img/{base_name}.png', bbox_inches='tight', dpi=300)
+    fig.savefig('img/fig_3.pdf', bbox_inches='tight', dpi=300)
+    fig.savefig('img/fig_3.png', bbox_inches='tight', dpi=300)
     plt.show()
-    return figures
+    return {metric: fig for metric in metrics}
 
 
 # def plot_fig_s3(results_df):
