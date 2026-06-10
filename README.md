@@ -8,11 +8,11 @@ Try out running this repository in your browser: [![Binder](https://mybinder.org
 
 ### Deterministic simulations
 
-[main_simulation.py](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/main_simulation.py) reproduces the core numerical experiments and generates the main results (Figures 1a, 1b, and S2). It also produces Figure S1 (phase plane diagrams). The script performs Latin hypercube sampling of model parameters for both Beverton-Holt and Ricker competition models, computes analytical equilibria and coexistence metrics (e.g., strength of self-limitation &#957; and competition effect &#957;<sub>C</sub>), and evaluates how well these metrics predict coexistence versus competitive exclusion under rare-species scenarios.
+[main_simulation.py](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/main_simulation.py) reproduces the core numerical experiments and generates the main results (Figures 1 and S2). It also produces Figure S1 (phase plane diagrams). The script performs Latin hypercube sampling of model parameters for both Beverton-Holt and Ricker competition models, computes analytical equilibria and coexistence metrics (e.g., strength of self-limitation &#957; and competition effect &#957;<sub>C</sub>), and evaluates how well these metrics predict coexistence versus competitive exclusion under rare-species scenarios.
 
 ### Stochastic simulations
 
-[main_stochasticity.py](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/main_stochasticity.py) extends the analysis to demographic stochasticity, producing Figures 2a, 2b, 3a, and 3b. It simulates population dynamics with Poisson noise, compares mean coexistence times under strong vs. weak self-limitation, and illustrates stochastic time series for selected parameter sets.
+[main_stochasticity.py](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/main_stochasticity.py) extends the analysis to demographic stochasticity, producing Figures 2 and S3. It simulates population dynamics with Poisson noise, compares mean coexistence times under strong vs. weak self-limitation, and illustrates stochastic time series for selected parameter sets.
 
 ### Appendix analyses
 
@@ -20,7 +20,7 @@ Try out running this repository in your browser: [![Binder](https://mybinder.org
 
 ### Reproducibility of Yenni et al. (2012)
 
-The file [code_for_reproducibility.py](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/code_for_reproducibility.py) intends to reproduce the results of Yenni et al. (2012).
+The file [code_for_reproducibility.py](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/code_for_reproducibility.py) intends to reproduce the results of Yenni et al. (2012). The files [yenni_fig1.py](github.com/Tungdil01/Annual_Plant_Model/blob/main/yenni_fig1.py) and [yenni_fig2_3.py](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/yenni_fig2_3.py) reproduce Yenni et al. (2012) Figures 1 to 3.
 
 Yenni, Glenda Marie, Peter Adler, and S. K. Morgan Ernest. 2012. "Strong self-limitation promotes the persistence of rare species." Ecology. 93 (3) pp. 456 - 461. [DOI](http://doi.org/10.1890/11-1087.1)
 
