@@ -106,12 +106,11 @@ def check_analytical_scenarios_beverton_holt(params):
     r1, r2, a11, a22, a12, a21 = params
     if r1 <= 1 or r2 <= 1:
         return 'invalid' # Avoid division by zero
-    # Calculate the analytical conditions
+    # Calculate Cushing conditions
     cond1_left = a12
     cond1_right = a22 * (r1 - 1) / (r2 - 1)
     cond2_left = a21
     cond2_right = a11 * (r2 - 1) / (r1 - 1)
-    # Check the four scenarios
     if cond1_left < cond1_right and cond2_left > cond2_right:
         return 'species1_wins'
     elif cond1_left > cond1_right and cond2_left < cond2_right:
@@ -121,7 +120,7 @@ def check_analytical_scenarios_beverton_holt(params):
     elif cond1_left > cond1_right and cond2_left > cond2_right:
         return 'saddle_point'
     else:
-        return 'borderline' # Edge cases where inequalities are equal
+        return 'borderline' # Edge cases: inequalities are equal
 
 
 def check_analytical_scenarios_ricker(params):
@@ -131,7 +130,6 @@ def check_analytical_scenarios_ricker(params):
     # Calculate the analytical conditions
     cond1 = a12 < (r1 * a22 / r2)
     cond2 = a21 < (r2 * a11 / r1)
-    # Check the four scenarios
     if cond1 and cond2:
         return 'stable_coexistence'
     elif cond1 and not cond2:
@@ -166,7 +164,7 @@ def bootstrap_percentile_proportion(event_mask, condition_mask=None, replicates=
             continue
         num = int(np.count_nonzero(event_mask[idx] & condition_mask[idx]))
         rep[i] = float(num) / float(denom)
-    rep = rep[~np.isnan(rep)] # Remove NaN values
+    rep = rep[~np.isnan(rep)]
     if len(rep) == 0:
         return est, np.nan, np.nan, np.array([])
     lower = float(np.percentile(rep, 100.0 * (alpha / 2.0)))
@@ -713,12 +711,6 @@ def plot_probability_analysis(prob_results, model_name, metrics, scenario):
 
 
 # +
-# def format_pct(value):
-#     if abs(value - 100) < 0.01:
-#         return "100%"
-#     else:
-#         return f"{value:.3g}%"
-
 def format_prob(value):
     if np.isnan(value):
         return "NaN"
@@ -998,7 +990,6 @@ def plot_phase_plane():
     axes = axes.flatten()    
     for i, (title, params) in enumerate(scenarios.items()):
         ax = axes[i]
-        # Unpack parameters
         r1 = params['r1']
         r2 = params['r2']
         a11 = params['a11']
@@ -1022,7 +1013,6 @@ def plot_phase_plane():
             E3 = [E3_x, E3_y]
         else:
             E3 = None
-        # Extend axis limits by 10%
         max_N1 = max(E1[0], Q[0])
         max_N2 = max(E2[1], P[1])
         N1 = np.linspace(0, max_N1, 30)
@@ -1031,7 +1021,6 @@ def plot_phase_plane():
         # Compute the discrete system
         N1_next = r1 * N1 / (1 + a11 * N1 + a12 * N2)
         N2_next = r2 * N2 / (1 + a22 * N2 + a21 * N1)
-        # Plot vector field
         ax.quiver(N1, N2, N1_next - N1, N2_next - N2, angles='xy', scale_units='xy', scale=15, color='grey', alpha=1)
         # Plot equilibrium points
         ax.plot(E0[0], E0[1], 'ko', label='E0', markersize=8)
@@ -1039,26 +1028,19 @@ def plot_phase_plane():
         ax.plot(Q[0], Q[1], 'ro', label='Q', markersize=8)
         ax.plot(E2[0], E2[1], 'ro', label='E2', markersize=8)
         ax.plot(P[0], P[1], 'bo', label='P', markersize=8)
-        # Draw lines between points
         ax.plot([E1[0], P[0]], [E1[1], P[1]], 'b-', lw=2)  # Line between P and E1 (blue)
         ax.plot([Q[0], E2[0]], [Q[1], E2[1]], 'r-', lw=2)  # Line between Q and E2 (red)
-        # Plot intersection point E3 if it exists within the plot limits and above the lines
         if E3 is not None and (0 <= E3[0] <= 1.1 * max_N1) and (0 <= E3[1] <= 1.1 * max_N2):
             ax.plot(E3[0], E3[1], 'go', label=r'$E_3$', markersize=8)
-            # Annotate E3 near the point
             ax.annotate(f'$E_3$', xy=(E3[0], E3[1]), xytext=(E3[0] + 0.3, E3[1] + 0.3), fontsize=18, color='green')
-        # Set labels and title
         ax.set_xlabel(r'$N_1$', fontsize=18)
         ax.set_ylabel(r'$N_2$', fontsize=18)
-        # Move title to the left
         ax.set_title(title, fontsize=18, loc='left')
-        # Set xticks and yticks with labels for E1, E2, P, Q
         ax.set_xticks([0, E1[0], Q[0]])
         ax.set_xticklabels([r'$E_0$', r'$E_1$', r'$Q$'])
         ax.set_yticks([0, E2[1], P[1]])
         ax.set_yticklabels([r'$E_0$', r'$E_2$', r'$P$'])
         ax.tick_params(axis='both', which='major', labelsize=18)
-    # Adjust layout and save the figure
     plt.tight_layout()
     os.makedirs('img', exist_ok=True)
     filename = f'fig_s1'
@@ -1072,7 +1054,7 @@ def main():
     bootstrap_replicates = int(0.5*n_samples)
     confidence_level = 0.95
     models = ['bevertonHolt', 'ricker'] # 
-    metrics = ['nu', 'nu_C'] # , 'nu_CA', 'nu_ASL', 'nu_a'
+    metrics = ['nu', 'nu_C'] # , 'nu_CA',
     scenarios = ['rarity'] # , 'general'
     print("="*50)
     print("COEXISTENCE vs COMPETITIVE EXCLUSION ANALYSIS")

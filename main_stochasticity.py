@@ -62,12 +62,11 @@ def check_analytical_scenarios_beverton_holt(params):
     r1, r2, a11, a22, a12, a21 = params
     if r1 <= 1 or r2 <= 1:
         return 'invalid' # Avoid division by zero
-    # Calculate the analytical conditions
+    # Calculate Cushing conditions
     cond1_left = a12
     cond1_right = a22 * (r1 - 1) / (r2 - 1)
     cond2_left = a21
     cond2_right = a11 * (r2 - 1) / (r1 - 1)
-    # Check the four scenarios
     if cond1_left < cond1_right and cond2_left > cond2_right:
         return 'species1_wins'
     elif cond1_left > cond1_right and cond2_left < cond2_right:
@@ -77,7 +76,7 @@ def check_analytical_scenarios_beverton_holt(params):
     elif cond1_left > cond1_right and cond2_left > cond2_right:
         return 'saddle_point'
     else:
-        return 'borderline' # Edge cases where inequalities are equal
+        return 'borderline' # Edge cases: inequalities are equal
 
 
 def find_equilibrium(r1, r2, a11, a22, a12, a21, eps=1e-8):
@@ -178,14 +177,6 @@ def demographic_stochasticity_simulation(r1, r2, a11, a22, a12, a21, n_simulatio
     return extinction_results, extinction_times
 
 
-# def get_parameter_examples():
-#     return [
-#         {'r1': 2.0, 'r2': 2.0, 'a11': 0.5, 'a22': 0.1, 'a12': 0.05, 'a21': 0.05, 'label': 'weak_stabilization'}, # weak
-#         {'r1': 2.0, 'r2': 2.0, 'a11': 4.0, 'a22': 4.0, 'a12': 1.0, 'a21': 2.0, 'label': 'weak_stabilization_example'}, # weak
-#         {'r1': 2.0, 'r2': 1.8, 'a11': 0.4, 'a22': 0.3, 'a12': 0.08, 'a21': 0.1, 'label': 'strong_stabilization'}, # strong
-#         {'r1': 2.0, 'r2': 2.0, 'a11': 2.0, 'a22': 6.0, 'a12': 4.0, 'a21': 1.0, 'label': 'strong_stabilization_example'}, # strong
-#     ]
-
 def generate_parameter_sets(n_samples=2000, eps=1e-3, seed=1234):
     sampler = qmc.LatinHypercube(d=6, seed=seed)
     samples = sampler.random(n=n_samples)
@@ -198,44 +189,6 @@ def generate_parameter_sets(n_samples=2000, eps=1e-3, seed=1234):
     scaled_samples[:, 5] = samples[:, 5] * (3 - eps) + eps # a21
     return scaled_samples
 
-
-# def generate_parameter_sets(n_samples=2000, eps=1e-3, seed=1234):
-#     sampler = qmc.LatinHypercube(d=6, seed=seed)
-#     samples = sampler.random(n=n_samples)
-#     scaled_samples = np.zeros_like(samples)
-#     scaled_samples[:, 0] = samples[:, 0] * (20 - 15) + 15 # r1 in (15,20)
-#     scaled_samples[:, 1] = samples[:, 1] * (20 - 15) + 15 # r2 in (15,20)
-#     scaled_samples[:, 2] = samples[:, 2] * (3 - 0.1) + 0.1 # a11 in (0.1,3)
-#     scaled_samples[:, 3] = samples[:, 3] * (1 - 0.1) + 0.1 # a22 in (0.1,1)
-#     scaled_samples[:, 4] = samples[:, 4] * (1 - 0.1) + 0.1 # a12 in (0.1,1)
-#     scaled_samples[:, 5] = samples[:, 5] * (1 - 0.1) + 0.1 # a21 in (0.1,1)
-#     return scaled_samples
-
-# def generate_parameter_sets(n_samples=None, eps=1e-3, seed=1234):
-#     r1_vals = np.arange(15, 21)
-#     r2_vals = np.arange(11, 21)
-#     a11_vals = np.round(np.arange(0.7, 3.1, 0.1), 1)
-#     a22_vals = np.round(np.arange(0.1, 1.1, 0.1), 1)
-#     a12_vals = np.round(np.arange(0.1, 1.1, 0.1), 1)
-#     a21_vals = np.round(np.arange(0.1, 1.1, 0.1), 1)
-#     combos = list(itertools.product(r1_vals, r2_vals, a11_vals, a12_vals, a21_vals, a22_vals))
-#     valid = []
-#     for r1, r2, a11, a12, a21, a22 in combos:
-#         if not (a11 > 0 and a22 > 0):
-#             continue
-#         scenario = check_analytical_scenarios_beverton_holt((r1, r2, a11, a22, a12, a21))
-#         if scenario == 'stable_coexistence':
-#             try:
-#                 N1, N2, eq_type = find_equilibrium(r1, r2, a11, a22, a12, a21)
-#                 if eq_type == "coexistence" and N1 > 0 and N2 > 0:
-#                     total = N1 + N2
-#                     if total > 0 and N1 / total <= 0.25:
-#                         valid.append([r1, r2, a11, a12, a21, a22])
-#             except:
-#                 continue
-#     if len(valid) == 0:
-#         raise ValueError("No valid parameter sets found")
-#     return np.array(valid)
 
 def analyze_extinction_patterns(extinction_results, rare_species):
     if rare_species == "species1_rare":
@@ -356,7 +309,7 @@ def bootstrap_confidence_interval_difference(data1, data2, n_bootstrap=10000, ci
 def check_stochastic_dominance(weak_rates, strong_rates):
     weak_sorted = np.sort(weak_rates)
     strong_sorted = np.sort(strong_rates)
-    # Calculate ECDFs at common points
+    # Calculate empirical cumulative distribution function (ECDF) at common points
     all_values = np.sort(np.unique(np.concatenate([weak_rates, strong_rates])))
     ecdf_weak = np.array([np.mean(weak_rates <= x) for x in all_values])
     ecdf_strong = np.array([np.mean(strong_rates <= x) for x in all_values])
@@ -820,88 +773,6 @@ def plot_examples_stochastic_time_series(metrics, examples, n_simulations=2000, 
     return {metric: fig for metric in metrics}
 
 
-# def plot_fig_s3(results_df):
-#     valid = results_df[(results_df['rare_species'].isin(['species1_rare', 'species2_rare'])) &
-#                        (results_df['N1_eq'] > 0) & (results_df['N2_eq'] > 0)].copy()
-#     if len(valid) == 0:
-#         print("No valid data for fig_s3")
-#         return
-#     S_rare = []
-#     S_dominant = []
-#     rare_density = []
-#     dominant_density = []
-#     for idx, row in valid.iterrows():
-#         if row['rare_species'] == 'species1_rare':
-#             S_rare.append(row['SoS1'])
-#             S_dominant.append(row['SoS2'])
-#             rare_density.append(row['N1_eq'])
-#             dominant_density.append(row['N2_eq'])
-#         else:
-#             S_rare.append(row['SoS2'])
-#             S_dominant.append(row['SoS1'])
-#             rare_density.append(row['N2_eq'])
-#             dominant_density.append(row['N1_eq'])
-#     valid['S_rare'] = S_rare
-#     valid['S_dominant'] = S_dominant
-#     valid['rare_density'] = rare_density
-#     valid['dominant_density'] = dominant_density
-#     bins = [(1,2), (2,3), (3,4), (4, np.inf)]
-#     bin_labels = ['1<S<2', '2<S<3', '3<S<4', 'S>4']
-#     fig, axes = plt.subplots(2, 4, figsize=(16, 10))
-#     for col, (low, high) in enumerate(bins):
-#         if high == np.inf:
-#             mask = valid['S_rare'] > low
-#         else:
-#             mask = (valid['S_rare'] > low) & (valid['S_rare'] < high)
-#         subset = valid[mask]
-#         # Top row: rare species
-#         ax_top = axes[0, col]
-#         if len(subset) > 0:
-#             x_rare = subset['rare_density'].values
-#             y_rare = subset['median_coexistence_time'].values
-#             # Bin density into 20 bins, compute median coexistence time per bin
-#             n_bins = 20
-#             bins_density = np.linspace(x_rare.min(), x_rare.max(), n_bins+1)
-#             bin_centers = (bins_density[:-1] + bins_density[1:]) / 2
-#             medians = []
-#             for i in range(n_bins):
-#                 mask_bin = (x_rare >= bins_density[i]) & (x_rare < bins_density[i+1])
-#                 if np.any(mask_bin):
-#                     medians.append(np.median(y_rare[mask_bin]))
-#                 else:
-#                     medians.append(np.nan)
-#             ax_top.bar(bin_centers, medians, width=np.diff(bins_density)[0], color='blue', alpha=0.6)
-#             ax_top.set_ylabel('Median coexistence time')
-#         else:
-#             ax_top.text(0.5, 0.5, 'No data', ha='center', va='center')
-#         ax_top.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
-#         # Bottom row: dominant species
-#         ax_bottom = axes[1, col]
-#         if len(subset) > 0:
-#             x_dom = subset['dominant_density'].values
-#             y_dom = subset['median_coexistence_time'].values
-#             n_bins = 20
-#             bins_density = np.linspace(x_dom.min(), x_dom.max(), n_bins+1)
-#             bin_centers = (bins_density[:-1] + bins_density[1:]) / 2
-#             medians = []
-#             for i in range(n_bins):
-#                 mask_bin = (x_dom >= bins_density[i]) & (x_dom < bins_density[i+1])
-#                 if np.any(mask_bin):
-#                     medians.append(np.median(y_dom[mask_bin]))
-#                 else:
-#                     medians.append(np.nan)
-#             ax_bottom.bar(bin_centers, medians, width=np.diff(bins_density)[0], color='red', alpha=0.6)
-#             ax_bottom.set_xlabel(bin_labels[col])
-#             ax_bottom.set_ylabel('Median coexistence time')
-#         else:
-#             ax_bottom.text(0.5, 0.5, 'No data', ha='center', va='center')
-#         ax_bottom.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
-#     plt.tight_layout()
-#     os.makedirs('img', exist_ok=True)
-#     fig.savefig('img/fig_s3.pdf', bbox_inches='tight', dpi=300)
-#     fig.savefig('img/fig_s3.png', bbox_inches='tight', dpi=300)
-#     plt.show()
-
 def classify_sign(value):
     return 'negative' if value < 0 else 'positive'
 
@@ -925,30 +796,8 @@ def main():
         analysis_results = analyze_simulation_results(results_df, metric=metric)
         print_analysis(analysis_results, metric=metric)
         plot_analysis_results(results_df, analysis_results, metric=metric)
-    # Plot all stochastic time series
     plot_examples_stochastic_time_series(metrics, examples, n_simulations=2000, max_time=max_time)
-#    plot_fig_s3(results_df)
 
-
-# def main():
-#     n_simulations_per_set = 2000
-#     n_additional_samples = 1000
-#     max_time = 50000
-#     print("Running demographic stochasticity analysis...")
-#     results_df = run_demographic_stochasticity_analysis(
-#         n_simulations_per_set=n_simulations_per_set,
-#         max_time=max_time
-#     )
-#     save_results(results_df)
-#     metrics = ['nu', 'nu_C']
-#     examples = find_example_parameter_sets(metrics, results_df, n_additional_samples)
-#     for metric in metrics:
-#         print(f"\nAnalyzing metric: {metric}")
-#         analysis_results = analyze_simulation_results(results_df, metric=metric)
-#         print_analysis(analysis_results, metric=metric)
-#         plot_analysis_results(results_df, analysis_results, metric=metric)
-#     plot_examples_stochastic_time_series(metrics, examples, n_simulations=2000, max_time=max_time)
-#     plot_fig_s3(results_df)
 
 if __name__ == "__main__":
     main()

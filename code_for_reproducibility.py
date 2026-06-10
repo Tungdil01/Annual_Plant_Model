@@ -82,7 +82,6 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2):
     E1, E2 = r1 / r2, r2 / r1  # Fitness equivalence
     Asy = S1 - S2  # Asymmetry
     Rare = 0 if N1 == 0 and N2 == 0 else N1 / (N1 + N2)
-    # Calculating covariance:
     x = np.array([N1, N2])
     y = np.array([S1, S2])
     cor_matrix = np.cov(x, y)
@@ -97,14 +96,12 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2):
 
 # +
 def preprocess_data():
-    # Defines frequency-dependent parameters
     r1_v = np.arange(15, 21)
     r2_v = np.arange(15, 21)
     a11_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1, 1.5, 2, 2.5, 3])
     a12_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
     a21_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
     a22_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-    # Generate all combinations of parameters using NumPy's meshgrid
     mesh = np.array(np.meshgrid(r1_v, r2_v, a11_v, a12_v, a21_v, a22_v)).T.reshape(-1, 6)
     return mesh
 
@@ -124,7 +121,6 @@ if __name__ == "__main__":
     outfile = "csv/annplant_2spp_det_rare.csv"
     mesh = preprocess_data()
     results = np.empty((len(mesh), 17), dtype=float)
-    # Run the simulation for each row in the parameter combination mesh
     for k in range(len(mesh)):
         results[k] = Sim(k, mesh[k])
     postprocess_results(results, outfile)
@@ -176,11 +172,8 @@ def analyze_coexistence_effect(file_path):
     dat = pd.read_csv(file_path)
     correlation_column = 'cor'
     print(f"\n--- Coexistence Analysis ---")
-    # Logistic Regression
     result = perform_logistic_regression(dat)
-    # Proportion calculations
     proportions = calculate_proportions(dat, correlation_column)
-    # Create and print table
     table_data = {
         '\u03BD \u2265 0': [proportions['positive_coexistence'], proportions['positive_exclusion']],
         '\u03BD < 0': [proportions['negative_coexistence'], proportions['negative_exclusion']]
@@ -205,7 +198,8 @@ def analyze_coexistence_effect(file_path):
     return result
 
 
-# +
+# -
+
 def main():
     warnings.filterwarnings("ignore")
     output_file = "csv/annplant_2spp_det_rare_filtered.csv"
@@ -222,6 +216,7 @@ def main():
     print("\nReproduction of the Authors' Results")
     print("\nFigures Examples:")
     analyze_coexistence_effect(output_file)
+
 
 if __name__ == "__main__":
     main()

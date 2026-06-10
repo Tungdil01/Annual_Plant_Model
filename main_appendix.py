@@ -82,7 +82,6 @@ def time_simul(r1, r2, a11, a22, a12, a21, y01=5.0, y02=5.0, eps=1e-3):
 
 
 def get_theoreticalretical_class(r1, r2, a11, a12, a21, a22, eps=1e-12):
-    # returns dict with keys 'name', 'index', 'A1', 'A2', 'B', 'C' flags (bool)
     ratio1 = (r1 - 1) / (r2 - 1) if (r2 - 1) != 0 else float('inf')
     ratio2 = (r2 - 1) / (r1 - 1) if (r1 - 1) != 0 else float('inf')
     left1 = a12
@@ -143,16 +142,13 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True):
     FE1, FE2 = r1 / r2, r2 / r1 # Fitness equivalence
     Asy = S1 - S2 # Asymmetry
     Rare = 0 if N1 == 0 and N2 == 0 else N1 / (N1 + N2)
-    # Calculating covariance for SoS
     x = np.array([N1, N2])
     y_sos = np.array([S1, S2])
     cor_matrix_sos = np.cov(x, y_sos)
     cor_sos = cor_matrix_sos[0, 1] # Extracting the correlation between N and SoS
     Rank = 0 if N1 == 0 and N2 == 0 else (2 if N1 / (N1 + N2) <= 0.25 else 1)
-    # Calculate conditions for A, B, C
-    cls = get_theoreticalretical_class(r1, r2, a11, a12, a21, a22)
+    cls = get_theoreticalretical_class(r1, r2, a11, a12, a21, a22) # Calculate Cushing conditions
     A1, A2, B, C = cls['A1'], cls['A2'], cls['B'], cls['C']
-    # Call getPCG to calculate PGR1 and PGR2
     PGR1, PGR2 = getPCG(r1, r2, a11, a12, a21, a22, N1, N2)
     if extinc_crit_1:
         Coexist = 0 if N1 < 1 or N2 < 1 else 1
@@ -164,48 +160,6 @@ def calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1=True):
 # -
 
 # # annualplant_2spp_det_par.r
-
-# def preprocess_data(pars):
-#     # Defines frequency-dependent parameters
-#     if pars == 'r_code': # Their R code
-#          r1_v = np.arange(10, 21, 1)
-#          r2_v = np.arange(10, 21, 1)
-#          a11_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1, 1.5, 2, 2.5, 3])
-#          a12_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-#          a21_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-#          a22_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-#     elif pars == 'table1': # Reproduce their Table 1
-#         r1_v = np.arange(15, 21, 1)
-#         r2_v = np.arange(15, 21, 1)
-#         a11_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1, 1.5, 2, 2.5, 3])
-#         a12_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-#         a21_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-#         a22_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-#     elif pars == 'paper': # They describe in the paper
-#          r1_v = np.arange(15, 21, 1)
-#          r2_v = np.arange(11, 21, 1)
-#          a11_v = np.array([0.7, 0.3, 0.5, 0.7, 0.9, 1, 1.5, 2, 2.5, 3])
-#          a12_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-#          a21_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-#          a22_v = np.array([0.1, 0.3, 0.5, 0.7, 0.9, 1])
-#     else: # broad # we use in our paper in contrast to the narrow sets above from Yenni
-#         r1_v = np.arange(1, 21, 1)
-#         r2_v = np.arange(1, 21, 1)
-#         a11_v = np.arange(0.1, 3, 0.1)
-#         a12_v = np.arange(0.1, 3, 0.1)
-#         a21_v = np.arange(0.1, 3, 0.1)
-#         a22_v = np.arange(0.1, 3, 0.1)
-#     # Generate all combinations of parameters using NumPy's meshgrid
-#     mesh = np.array(np.meshgrid(r1_v, r2_v, a11_v, a12_v, a21_v, a22_v)).T.reshape(-1, 6)
-#     return mesh
-#
-# def Sim(k, mesh_row, extinc_crit_1=False):
-#     start_time = time.time()
-#     r1, r2, a11, a12, a21, a22 = mesh_row
-#     N1, N2 = getEqDensity(r1, r2, a11, a12, a21, a22)
-#     metrics = calculate_metrics(r1, r2, a11, a12, a21, a22, N1, N2, extinc_crit_1)
-#     execution_time = time.time() - start_time
-#     return {**metrics, "N1": N1, "N2": N2, "r1": r1, "r2": r2, "a11": a11, "a12": a12, "a21": a21, "a22": a22}
 
 # +
 def preprocess_data(case):
@@ -254,24 +208,6 @@ def postprocess_results(results, outfile):
 # -
 
 # # cor_figure.r
-
-# def cor_figure(filter, truncate=False):
-#     dat_det = pd.read_csv("csv/annplant_2spp_det_rare.csv")
-#     for col in ['A1', 'A2', 'B', 'C']:
-#         dat_det[col] = dat_det[col].astype(bool)
-#     # keep only stable coexistence (B) or competitive exclusion (A1/A2), remove saddle (C) and borderline
-#     dat_det = dat_det[(dat_det['A1']) | (dat_det['A2']) | (dat_det['B'])]  # filter_dynamical = on means we remove saddle and borderline, which is the more natural; while filter = off wrongly allows saddle and borderline, closer to Yenni
-#     if filter == 'inverted':
-#         dat_det = dat_det.query('Rank == 2 & S1 < 1 & S2 < 1').copy()
-#     elif filter == 'on':
-#         dat_det = dat_det.query('Rank == 2 & S1 >= 1 & S2 >= 1').copy()
-#     else: # 'off'
-#         dat_det = dat_det.query('Rank == 2').copy()
-#     dat_det.reset_index(drop=True, inplace=True)
-#     if truncate:
-#         dat_det = np.trunc(dat_det * 100) / 100.0
-#     dat_det.sort_values(by=['a22', 'a21', 'a12', 'a11', 'r2', 'r1'], inplace=True)
-#     dat_det.to_csv(f"csv/annplant_2spp_det_rare_filtered_{filter}.csv", index=False)
 
 def cor_figure(case):
     if case == 'yenni':
@@ -355,7 +291,7 @@ def analyze_coexistence_effect(data):
     neg_total = proportions[f'negative_coexistence_{correlation_column}'] + proportions[f'negative_exclusion_{correlation_column}']
     pos_confint = proportion_confint(count=proportions[f'positive_coexistence_{correlation_column}'], nobs=pos_total, alpha=0.05, method='wilson')
     neg_confint = proportion_confint(count=proportions[f'negative_coexistence_{correlation_column}'], nobs=neg_total, alpha=0.05, method='wilson')
-    # Decision logic
+    # Report logic
     if neg_confint[1] >= pos_confint[0] and neg_confint[0] <= pos_confint[1]:
         print(f"The confidence intervals overlap for {analysis_type}, indicating they are statistically the same, not supporting the authors' results.")
     elif neg_confint[1] > pos_confint[0]:
@@ -366,85 +302,6 @@ def analyze_coexistence_effect(data):
 
 
 # -
-
-def plot_phase_plane():
-    # Parameters for each scenario
-    scenarios = {
-        "A1: $E_1 > Q$ and $P > E_2$": {'r1': 18, 'r2': 16, 'a11': 0.5, 'a12': 1, 'a21': 1, 'a22': 1},
-        "A2: $Q > E_1$ and $E_2 > P$": {'r1': 20, 'r2': 15, 'a11': 2, 'a12': 1, 'a21': 1, 'a22': 0.5},
-        "B: $Q > E_1$ and $P > E_2$":  {'r1': 20, 'r2': 15, 'a11': 3, 'a12': 0.5, 'a21': 1, 'a22': 0.5},
-        "C: $E_1 > Q$ and $E_2 > P$":  {'r1': 16, 'r2': 18, 'a11': 0.3, 'a12': 1, 'a21': 1, 'a22': 0.5},
-    }    
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-    axes = axes.flatten()    
-    for i, (title, params) in enumerate(scenarios.items()):
-        ax = axes[i]
-        # Unpack parameters
-        r1 = params['r1']
-        r2 = params['r2']
-        a11 = params['a11']
-        a12 = params['a12']
-        a21 = params['a21']
-        a22 = params['a22']
-        # Equilibrium points
-        E1 = [(r1 - 1) / a11, 0]
-        Q = [(r2 - 1) / a21, 0]
-        E2 = [0, (r2 - 1) / a22]
-        P = [0, (r1 - 1) / a12]
-        E0 = [0, 0]
-        # Calculate the intersection point of lines (E1, Q) and (E2, P)
-        a1 = (P[1] - E1[1]) / (P[0] - E1[0]) if P[0] != E1[0] else float('inf')
-        b1 = E1[1] - a1 * E1[0]
-        a2 = (E2[1] - Q[1]) / (E2[0] - Q[0]) if E2[0] != Q[0] else float('inf')
-        b2 = Q[1] - a2 * Q[0]
-        if a1 != a2:  # Ensure lines are not parallel
-            E3_x = (b2 - b1) / (a1 - a2) if a1 != float('inf') and a2 != float('inf') else 0
-            E3_y = a1 * E3_x + b1 if a1 != float('inf') else a2 * E3_x + b2
-            E3 = [E3_x, E3_y]
-        else:
-            E3 = None
-        # Extend axis limits by 10%
-        max_N1 = max(E1[0], Q[0])
-        max_N2 = max(E2[1], P[1])
-        N1 = np.linspace(0, max_N1, 30)
-        N2 = np.linspace(0, max_N2, 30)
-        N1, N2 = np.meshgrid(N1, N2)
-        # Compute the discrete system
-        N1_next = r1 * N1 / (1 + a11 * N1 + a12 * N2)
-        N2_next = r2 * N2 / (1 + a22 * N2 + a21 * N1)
-        # Plot vector field
-        ax.quiver(N1, N2, N1_next - N1, N2_next - N2, angles='xy', scale_units='xy', scale=15, color='grey', alpha=1)
-        # Plot equilibrium points
-        ax.plot(E0[0], E0[1], 'ko', label='E0', markersize=8)
-        ax.plot(E1[0], E1[1], 'bo', label='E1', markersize=8)
-        ax.plot(Q[0], Q[1], 'ro', label='Q', markersize=8)
-        ax.plot(E2[0], E2[1], 'ro', label='E2', markersize=8)
-        ax.plot(P[0], P[1], 'bo', label='P', markersize=8)
-        # Draw lines between points
-        ax.plot([E1[0], P[0]], [E1[1], P[1]], 'b-', lw=2)  # Line between P and E1 (blue)
-        ax.plot([Q[0], E2[0]], [Q[1], E2[1]], 'r-', lw=2)  # Line between Q and E2 (red)
-        # Plot intersection point E3 if it exists within the plot limits and above the lines
-        if E3 is not None and (0 <= E3[0] <= 1.1 * max_N1) and (0 <= E3[1] <= 1.1 * max_N2):
-            ax.plot(E3[0], E3[1], 'go', label=r'$E_3$', markersize=8)
-            # Annotate E3 near the point
-            ax.annotate(f'$E_3$', xy=(E3[0], E3[1]), xytext=(E3[0] + 0.3, E3[1] + 0.3), fontsize=18, color='green')
-        # Set labels and title
-        ax.set_xlabel(r'$N_1$', fontsize=18)
-        ax.set_ylabel(r'$N_2$', fontsize=18)
-        # Move title to the left
-        ax.set_title(title, fontsize=18, loc='left')
-        # Set xticks and yticks with labels for E1, E2, P, Q
-        ax.set_xticks([0, E1[0], Q[0]])
-        ax.set_xticklabels([r'$E_0$', r'$E_1$', r'$Q$'])
-        ax.set_yticks([0, E2[1], P[1]])
-        ax.set_yticklabels([r'$E_0$', r'$E_2$', r'$P$'])
-        ax.tick_params(axis='both', which='major', labelsize=18)
-    # Adjust layout and save the figure
-    plt.tight_layout()
-    # os.makedirs('img', exist_ok=True)
-    # plt.savefig('img/phase_plane.pdf', bbox_inches='tight', dpi=300)
-    plt.show()
-
 
 def load_and_compute_classification(txt_path, extinc_crit_1):
     col_names = ['ID','l1','l2','a11','a12','a21','a22','N1','N2','E1','S1','E2','S2','Rank','CoexistRank','Asy','cor','Rare']
@@ -463,7 +320,6 @@ def load_and_compute_classification(txt_path, extinc_crit_1):
     E2 = (dat['r2'] - 1) / dat['a22']
     P = (dat['r1'] - 1) / dat['a12']
     Q = (dat['r2'] - 1) / dat['a21']
-    # Compute flags using helper
     A1_list = []; A2_list = []; B_list = []; C_list = []
     for _, row in dat.iterrows():
         cls = get_theoreticalretical_class(row['r1'], row['r2'], row['a11'], row['a12'], row['a21'], row['a22'])
@@ -505,30 +361,13 @@ def report_classification_from_txt(txt_path, extinc_crit_1):
     print(df_conf.to_string())
 
 
-# def setup_pipeline(filters, base_file, truncate, extinc_crit_1):
-#     os.makedirs('csv', exist_ok=True)
-#     warnings.filterwarnings("ignore")
-#     mesh = preprocess_data('table1') # table1 is Yenni
-#     results = [Sim(k, row, extinc_crit_1=extinc_crit_1)
-#                 for k, row in tqdm(enumerate(mesh), total=len(mesh))]
-#     postprocess_results(results, base_file)
-#     for filter_option in filters:
-#         filtered_filename = f"csv/annplant_2spp_det_rare_filtered_{filter_option}.csv"
-#         print(f"\nGenerating data for filter={filter_option}...")
-#         cor_figure(filter_option, truncate)
-#         summary_path = f"csv/pgr_analysis_summary_{filter_option}.csv"
-#         filtered_data = pd.read_csv(filtered_filename)
-#         analyze_coexistence_effect(filtered_data)
-#         plot_phase_plane()
-
 def report_classification_from_df(dat, extinc_crit_1):
     if 'Coexist' not in dat.columns:
         if extinc_crit_1:
             dat['Coexist'] = ((dat['N1'] >= 1) & (dat['N2'] >= 1)).astype(int)
         else:
             dat['Coexist'] = ((dat['N1'] >= 1e-6) & (dat['N2'] >= 1e-6)).astype(int)
-    # theoreticalretical classes
-    theoretical_class = []
+    theoretical_class = [] # Cushing conditions
     for _, row in dat.iterrows():
         if row['A1']:
             theoretical_class.append('Exclusion N2 (A1)')
@@ -540,7 +379,6 @@ def report_classification_from_df(dat, extinc_crit_1):
             theoretical_class.append('Saddle point (C)')
         else:
             theoretical_class.append('Borderline')
-    # classification from dataframe (using N1,N2 thresholds)
     df_class = []
     for _, row in dat.iterrows():
         if row['N1'] >= 1 and row['N2'] >= 1:
@@ -581,8 +419,7 @@ def generate_comprehensive_table(param_keys=None):
             r1, r2, a11, a12, a21, a22 = row
             cls = get_theoreticalretical_class(r1, r2, a11, a12, a21, a22)
             theoretical_idx = cls['index']
-            # Yenni method
-            Y_N1, Y_N2 = getEqDensity(r1, r2, a11, a12, a21, a22)
+            Y_N1, Y_N2 = getEqDensity(r1, r2, a11, a12, a21, a22) # Yenni method
             S1, S2 = SOS(r1, r2, a11, a12, a21, a22)
             if S1 >= 1 and S2 >= 1:
                 if Y_N1 >= 1 and Y_N2 >= 1:
@@ -609,8 +446,28 @@ def generate_comprehensive_table(param_keys=None):
                     else:
                         yenni_idx = 4
             yenni_conf[yenni_idx, theoretical_idx] += 1
-            # Our method (use epsilon threshold for coexistence)
-            if param_key == 'broad':
+            if param_key == 'yenni':
+                true_coexist_binary = 1 if theoretical_idx == 2 else 0
+                if S1 >= 1 and S2 >= 1:
+                    Y_coexist_binary = 1 if (Y_N1 >= 1 and Y_N2 >= 1) else 0
+                else:
+                    Y_coexist_binary = 0
+                if Y_coexist_binary != true_coexist_binary:
+                    Y_coexist_nofilter = 1 if (Y_N1 >= 1 and Y_N2 >= 1) else 0
+                    if Y_coexist_nofilter == true_coexist_binary:
+                        yenni_miscl_sfilter += 1
+                    elif (S1 >= 1 and S2 >= 1) and (Y_coexist_binary == true_coexist_binary):
+                        pass
+                    else:
+                        if S1 >= 1 and S2 >= 1:
+                            O_coexist_sfilter = true_coexist_binary
+                            if (O_coexist_sfilter == true_coexist_binary) and (Y_coexist_binary != true_coexist_binary):
+                                yenni_miscl_formula += 1
+                            else:
+                                yenni_miscl_both += 1
+                        else:
+                            yenni_miscl_formula += 1
+            if param_key == 'broad': # Our method
                 coexist_thresh = 1e-6
             else:
                 coexist_thresh = 1.0
@@ -636,28 +493,6 @@ def generate_comprehensive_table(param_keys=None):
                 else:
                     our_idx = 4
             our_conf[our_idx, theoretical_idx] += 1
-            # Binary coexistence/exclusion for misclassification sources (Yenni method only)
-            if param_key == 'yenni':
-                true_coexist_binary = 1 if theoretical_idx == 2 else 0
-                if S1 >= 1 and S2 >= 1:
-                    Y_coexist_binary = 1 if (Y_N1 >= 1 and Y_N2 >= 1) else 0
-                else:
-                    Y_coexist_binary = 0
-                if Y_coexist_binary != true_coexist_binary:
-                    Y_coexist_nofilter = 1 if (Y_N1 >= 1 and Y_N2 >= 1) else 0
-                    if Y_coexist_nofilter == true_coexist_binary:
-                        yenni_miscl_sfilter += 1
-                    elif (S1 >= 1 and S2 >= 1) and (Y_coexist_binary == true_coexist_binary):
-                        pass
-                    else:
-                        if S1 >= 1 and S2 >= 1:
-                            O_coexist_sfilter = true_coexist_binary
-                            if (O_coexist_sfilter == true_coexist_binary) and (Y_coexist_binary != true_coexist_binary):
-                                yenni_miscl_formula += 1
-                            else:
-                                yenni_miscl_both += 1
-                        else:
-                            yenni_miscl_formula += 1
         theoretical_counts = yenni_conf.sum(axis=0)
         print(f"{'='*70}")
         print(f"Parameter set: {param_label} (n={n_total})")
@@ -771,7 +606,6 @@ def run_pipeline(case):
     base_file = f"csv/annplant_2spp_det_rare_{case}.csv"
     postprocess_results(results, base_file)
     dat = pd.read_csv(base_file)
-    # Compute A1,A2,B,C using helper
     A1_list = []; A2_list = []; B_list = []; C_list = []
     for _, row in dat.iterrows():
         cls = get_theoreticalretical_class(row['r1'], row['r2'], row['a11'], row['a12'], row['a21'], row['a22'])
@@ -779,7 +613,6 @@ def run_pipeline(case):
     dat['A1'] = A1_list; dat['A2'] = A2_list; dat['B'] = B_list; dat['C'] = C_list
     report_classification_from_df(dat, extinc_crit_1)
     generate_filtered_analysis(case)
-    plot_phase_plane()
 
 
 def main():

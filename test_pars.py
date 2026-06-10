@@ -13,8 +13,8 @@
 #     name: python3
 # ---
 
-# +
 import numpy as np
+
 
 def compute_Nstar(r1, r2, a11, a12, a21, a22):
     denom = a11 * a22 - a12 * a21
@@ -23,6 +23,7 @@ def compute_Nstar(r1, r2, a11, a12, a21, a22):
     N1 = ((r1 - 1) * a22 - (r2 - 1) * a12) / denom
     N2 = ((r2 - 1) * a11 - (r1 - 1) * a21) / denom
     return N1, N2
+
 
 def time_simul(r1, r2, a11, a22, a12, a21, y01=5.0, y02=5.0, eps=1e-3):
     y1 = np.array([y01], dtype=np.float64)
@@ -48,6 +49,7 @@ def time_simul(r1, r2, a11, a22, a12, a21, y01=5.0, y02=5.0, eps=1e-3):
         i += 1
     return y1, y2
 
+
 def compute_S(r_j, a_ij, a_jj):
     if np.isclose(a_jj, 0.0):
         raise ValueError("Division by zero in compute_S: a_jj is zero.")
@@ -57,8 +59,10 @@ def compute_S(r_j, a_ij, a_jj):
         raise ValueError("Division by zero in compute_S: denominator (1 + (r_j-1)*a_ij/a_jj) is zero.")
     return r_j / denom
 
+
 def compute_nu(N1, N2, S1, S2):
     return (N1 - N2) * (S1 - S2) / 2.0
+
 
 def compute_C(r_i, a_ij, r_j, a_jj):
     if np.isclose(a_ij, 0.0):
@@ -66,6 +70,7 @@ def compute_C(r_i, a_ij, r_j, a_jj):
     if np.isclose(a_jj, 0.0):
         raise ValueError("Division by zero in compute_C: a_jj is zero.")
     return (r_i - 1) / a_ij - (r_j - 1) / a_jj
+
 
 def check_coexistence(r1, r2, a11, a12, a21, a22):
     if r1 <= 1.0 or r2 <= 1.0:
@@ -87,6 +92,7 @@ def check_coexistence(r1, r2, a11, a12, a21, a22):
     else:
         raise ValueError("check_coexistence: unexpected combination of parameters.")
 
+
 def get_equilibrium_populations(r1, r2, a11, a12, a21, a22):
     status, winner, loser = check_coexistence(r1, r2, a11, a12, a21, a22)
     if status == "stable coexistence":
@@ -106,6 +112,7 @@ def get_equilibrium_populations(r1, r2, a11, a12, a21, a22):
     else: # unstable saddle or borderline
         y1, y2 = time_simul(r1, r2, a11, a22, a12, a21)
         return y1[-1], y2[-1]
+
 
 def main():
     # r1, r2 = 20.0, 20.0
@@ -144,8 +151,6 @@ def main():
     print("\n---\n")
     print(f"Coexistence condition: {status}")
 
-
-# -
 
 if __name__ == "__main__":
     main()

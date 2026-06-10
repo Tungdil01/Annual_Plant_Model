@@ -140,27 +140,6 @@ print(y1, y2)
 
 # -
 
-# @jit(nopython=True)
-# def time_simul(y01, y02, r1, r2, a11, a22, a12, a21):
-#     y1 = np.array([5.0], dtype=np.float64)
-#     y2 = np.array([5.0], dtype=np.float64)
-#     stop_run = False
-#     i = 0
-#     while not stop_run and i < 10000:
-#         denom1 = 1 + a11 * y1[i] + a12 * y2[i]
-#         denom2 = 1 + a22 * y2[i] + a21 * y1[i]
-#         per_cap1 = r1 / denom1
-#         per_cap2 = r2 / denom2
-#         new_y1 = y1[i] * per_cap1
-#         new_y2 = y2[i] * per_cap2
-#         y1 = np.append(y1, new_y1)
-#         y2 = np.append(y2, new_y2)
-#         if i >= 1:
-#             if (abs(y1[-1] - y1[-2]) < 1e-6 and abs(y2[-1] - y2[-2]) < 1e-6):
-#                 stop_run = True
-#         i += 1
-#     return y1, y2
-
 @jit(nopython=True)
 def time_simul(r1, r2, a11, a22, a12, a21, y01=5.0, y02=5.0, eps=1e-6):
     y1 = np.array([y01], dtype=np.float64)
@@ -259,12 +238,11 @@ def check_analytical_scenarios_beverton_holt(r1, r2, a11, a12, a21, a22):
     # Avoid division by zero
     if r1 <= 1 or r2 <= 1:
         return 'invalid'
-    # Calculate the analytical conditions
+    # Calculate Cushing conditions
     cond1_left = a12
     cond1_right = a22 * (r1 - 1) / (r2 - 1)
     cond2_left = a21
     cond2_right = a11 * (r2 - 1) / (r1 - 1)
-    # Check the four scenarios
     if cond1_left < cond1_right and cond2_left > cond2_right:
         return 'species1_wins'
     elif cond1_left > cond1_right and cond2_left < cond2_right:
@@ -281,12 +259,10 @@ check_analytical_scenarios_beverton_holt(r1, r2, a11, a12, a21, a22)
 
 # +
 def main():
-    # Initialize
-    tmax = 200 # the code automatically adapts the tmax
+    tmax = 200
     y1, y2 = np.zeros(tmax), np.zeros(tmax)
     y01, y02 = 5, 5 # initial conditions
     y1[0], y2[0] = y01, y02
-    # Plot Two Species Dynamics
     plot_dynamics(r1, r2, a11, a12, a21, a22, y01, y02)
 
 if __name__ == "__main__":
