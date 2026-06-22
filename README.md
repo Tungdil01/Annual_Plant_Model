@@ -18,7 +18,7 @@ For the utilized packages, see the [requirements](https://github.com/Tungdil01/A
 
 ### Deterministic simulations
 
-[main_simulation.py](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/main_simulation.py) reproduces the core numerical experiments and generates the main results (Figures 1 and S2). It also produces Figure S1 (phase plane diagrams). The script performs Latin hypercube sampling of model parameters for both Beverton-Holt and Ricker competition models, computes analytical equilibria and coexistence metrics (e.g., strength of self-limitation ν and competition effect ν<sub>C</sub>), and evaluates how well these metrics predict coexistence versus competitive exclusion under rare-species scenarios.
+[main_simulation.py](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/main_simulation.py) reproduces the core numerical experiments and generates the main results (Figures 1 and S2). It also produces Figure S1 (phase plane diagrams). The script performs Latin hypercube sampling of model parameters for both Beverton-Holt and Ricker competition models, computes analytical equilibria and coexistence metrics (e.g., strength of self-limitation &#957; and competition effect &#957;<sub>C</sub>), and evaluates how well these metrics predict coexistence versus competitive exclusion under rare-species scenarios.
 
 ### Stochastic simulations
 
@@ -30,7 +30,7 @@ For the utilized packages, see the [requirements](https://github.com/Tungdil01/A
 
 ### Reproducibility of Yenni et al. (2012)
 
-The file [code_for_reproducibility.py](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/code_for_reproducibility.py) intends to reproduce the results of Yenni et al. (2012). The files [yenni_fig1.py](github.com/Tungdil01/Annual_Plant_Model/blob/main/yenni_fig1.py) and [yenni_fig2_3.py](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/yenni_fig2_3.py) reproduce Yenni et al. (2012) Figures 1 to 3.
+The file [code_for_reproducibility.py](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/code_for_reproducibility.py) intends to reproduce the results of Yenni et al. (2012). The files [yenni_fig1.py](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/yenni_fig1.py) and [yenni_fig2_3.py](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/yenni_fig2_3.py) reproduce Yenni et al. (2012) Figures 1 to 3.
 
 Yenni, Glenda Marie, Peter Adler, and S. K. Morgan Ernest. 2012. "Strong self-limitation promotes the persistence of rare species." Ecology. 93 (3) pp. 456 - 461. [DOI](http://doi.org/10.1890/11-1087.1)
 
@@ -66,8 +66,8 @@ These files share a common base structure. The full list of columns (base) is:
 | `E1` | float | Fitness equivalence = `r1/r2` | dimensionless |
 | `E2` | float | Fitness equivalence = `r2/r1` | dimensionless |
 | `S1`, `S2` | float | Strength of stabilization [(Adler et al. 2007)](https://doi.org/10.1111/j.1461-0248.2006.00996.x) | dimensionless |
-| `Rank` | integer | 2 if rare (N1/(N1+N2) ≤ 0.25), else 1 | – |
-| `CoexistRank` | integer | 1 if both N1 ≥ 1 and N2 ≥ 1, else 0 | – |
+| `Rank` | integer | 2 if rare (N1/(N1+N2) &le; 0.25), else 1 | – |
+| `CoexistRank` | integer | 1 if both N1 &ge; 1 and N2 &ge; 1, else 0 | – |
 | `Asy` | float | Asymmetry = S1 − S2 | dimensionless |
 | `cor` (or `cor_sos`) | float | Covariance between [N1,N2] and [S1,S2] | individuals |
 | `Rare` | float | Proportion of species 1 at equilibrium = N1/(N1+N2) | proportion |
@@ -89,7 +89,7 @@ The following files follow this structure, with the differences noted:
   Columns: base 17.
 
 - [csv/annplant_2spp_det_rare_yenni.csv](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/csv/annplant_2spp_det_rare_yenni.csv)  
-  Source: `main_appendix.py` (`run_pipeline('yenni')`). Same parameter ranges as above; uses Yenni’s original equilibrium calculation (`analyN`).  
+  Source: `main_appendix.py` (`run_pipeline('yenni')`). Same parameter ranges as above; uses Yenni's original equilibrium calculation (`analyN`).  
   Columns: base 17 + `PGR1, PGR2, A1, A2, B, C` (total 23 columns).
 
 - [csv/annplant_2spp_det_rare_filtered_yenni.csv](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/csv/annplant_2spp_det_rare_filtered_yenni.csv)  
@@ -123,9 +123,9 @@ A. Results file: `results_{model}_{scenario}.csv` (e.g., `results_bevertonHolt_r
 | `valid_outcome` | boolean | True if scenario is stable coexistence or competitive exclusion | – |
 | `coexistence` | boolean | True if stable coexistence (Cushing class B) | – |
 | `competitive_exclusion` | boolean | True if one species wins (Cushing A1 or A2) | – |
-| `has_rare_species` | boolean | True if equilibrium relative abundance of either species ≤ 0.25 | – |
-| `nu` | float | Strength of self‑limitation (Yenni) = (N₁−N₂)(S₁−S₂)/2 | individuals |
-| `nu_C` | float | Competition effect ([Streipert and Wolkowicz 2023](https://doi.org/10.1016/j.mbs.2022.108924)) = (N₁−N₂)(CE₁−CE₂)/2 | individuals² |
+| `has_rare_species` | boolean | True if equilibrium relative abundance of either species &le; 0.25 | – |
+| `nu` | float | Strength of self‑limitation (Yenni) = (N<sub>1</sub>−N<sub>2</sub>)(S<sub>1</sub>−S<sub>2</sub>)/2 | individuals |
+| `nu_C` | float | Competition effect ([Streipert and Wolkowicz 2023](https://doi.org/10.1016/j.mbs.2022.108924)) = (N<sub>1</sub>−N<sub>2</sub>)(CE<sub>1</sub>−CE<sub>2</sub>)/2 | individuals<sup>2</sup> |
 
 B. Probability file: `probability_{model}_{scenario}.csv`
 
@@ -168,7 +168,7 @@ Generated files (all in `csv/`):
 | `r1`, `r2`, `a11`, `a22`, `a12`, `a21` | float | Parameters (as above) | dimensionless / 1/individuals |
 | `N1_eq`, `N2_eq` | float | Deterministic equilibrium densities | individuals |
 | `SoS1`, `SoS2` | float | Strength of stabilization | dimensionless |
-| `nu`, `nu_C` | float | Self‑limitation and competition effect | individuals / individuals² |
+| `nu`, `nu_C` | float | Self‑limitation and competition effect | individuals / individuals<sup>2</sup> |
 | `rare_species` | string | `"species1_rare"` or `"species2_rare"` | – |
 | `self_limitation` | string | `"strong"` if nu < 0, else `"weak"` | – |
 | `rare_extinction_rate`, `common_extinction_rate` | float | Proportion of simulations where rare/common species goes extinct | proportion |
