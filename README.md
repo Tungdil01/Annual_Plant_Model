@@ -124,8 +124,8 @@ A. Results file: `results_{model}_{scenario}.csv` (e.g., `results_bevertonHolt_r
 | `coexistence` | boolean | True if stable coexistence (Cushing class B) | – |
 | `competitive_exclusion` | boolean | True if one species wins (Cushing A1 or A2) | – |
 | `has_rare_species` | boolean | True if equilibrium relative abundance of either species &le; 0.25 | – |
-| `nu` | float | Strength of self‑limitation (Yenni) = (N<sub>1</sub>−N<sub>2</sub>)(S<sub>1</sub>−S<sub>2</sub>)/2 | individuals |
-| `nu_C` | float | Competition effect ([Streipert and Wolkowicz 2023](https://doi.org/10.1016/j.mbs.2022.108924)) = (N<sub>1</sub>−N<sub>2</sub>)(CE<sub>1</sub>−CE<sub>2</sub>)/2 | individuals<sup>2</sup> |
+| `nu` | float | Strength of self‑limitation = (N<sub>1</sub>−N<sub>2</sub>)(S<sub>1</sub>−S<sub>2</sub>)/2 | individuals (Yenni et al. 2012) |
+| `nu_C` | float | Competition effect = (N<sub>1</sub>−N<sub>2</sub>)(CE<sub>1</sub>−CE<sub>2</sub>)/2 | individuals<sup>2</sup> ([Streipert and Wolkowicz 2023](https://doi.org/10.1016/j.mbs.2022.108924)) |
 
 B. Probability file: `probability_{model}_{scenario}.csv`
 
