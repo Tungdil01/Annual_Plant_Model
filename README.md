@@ -98,7 +98,7 @@ The following files follow this structure, with the differences noted:
   Columns: same as `annplant_2spp_det_rare_yenni.csv`.
 
 - [csv/annplant_2spp_det_rare_broad.csv](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/csv/annplant_2spp_det_rare_broad.csv)  
-  Source: `main_appendix.py` (`run_pipeline('broad')`). Latin hypercube sample (77,760 rows) with broader parameter ranges; uses **correct** equilibrium formulas:  
+  Source: `main_appendix.py` (`run_pipeline('broad')`). Latin hypercube sample (77,760 rows) with broader parameter ranges; uses correct equilibrium formulas for each theoretical class as determined by [Cushing et al. 2004](https://doi.org/10.1080/10236190410001652739) conditions:  
   `N1* = ((r1-1)*a22 - (r2-1)*a12) / (a11*a22 - a12*a21)` and similarly for `N2*`.  
   Columns: same as `annplant_2spp_det_rare_yenni.csv`.
 
@@ -172,4 +172,4 @@ Generated files (all in `csv/`):
 | `rare_species` | string | `"species1_rare"` or `"species2_rare"` | – |
 | `self_limitation` | string | `"strong"` if nu < 0, else `"weak"` | – |
 | `rare_extinction_rate`, `common_extinction_rate` | float | Proportion of simulations where rare/common species goes extinct | proportion |
-| `mean_coexistence_time`, `median_coexistence_time` | float | Mean/median time to extinction | generations |
+| `mean_coexistence_time`, `median_coexistence_time` | float | Mean/median time to extinction | time units |
