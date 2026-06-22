@@ -60,16 +60,16 @@ These files share a common base structure. The full list of columns (base) is:
 | Column name | Type | Description | Units / codes |
 |-------------|------|-------------|---------------|
 | `r1`, `r2` | float | Intrinsic growth rates of species 1 and 2 | dimensionless |
-| `a11`, `a22` | float | Intra‑specific competition coefficients | dimensionless |
-| `a12`, `a21` | float | Inter‑specific competition coefficients | dimensionless |
-| `N1`, `N2` | float | Equilibrium densities (from `analyN` or correct formula) | individuals |
+| `a11`, `a22` | float | Intra‑specific competition coefficients | 1/individuals |
+| `a12`, `a21` | float | Inter‑specific competition coefficients | 1/individuals |
+| `N1`, `N2` | float | Equilibrium densities | individuals |
 | `E1` | float | Fitness equivalence = `r1/r2` | dimensionless |
 | `E2` | float | Fitness equivalence = `r2/r1` | dimensionless |
-| `S1`, `S2` | float | Strength of stabilization (Adler et al.) | dimensionless |
+| `S1`, `S2` | float | Strength of stabilization [Adler et al. 2007](https://doi.org/10.1111/j.1461-0248.2006.00996.x) | dimensionless |
 | `Rank` | integer | 2 if rare (N1/(N1+N2) ≤ 0.25), else 1 | – |
 | `CoexistRank` | integer | 1 if both N1 ≥ 1 and N2 ≥ 1, else 0 | – |
 | `Asy` | float | Asymmetry = S1 − S2 | dimensionless |
-| `cor` (or `cor_sos`) | float | Covariance between [N1,N2] and [S1,S2] | – |
+| `cor` (or `cor_sos`) | float | Covariance between [N1,N2] and [S1,S2] | individuals |
 | `Rare` | float | Proportion of species 1 at equilibrium = N1/(N1+N2) | proportion |
 
 Additional columns in files from `main_appendix.py` (those with `_yenni` or `_broad`):  
@@ -80,26 +80,31 @@ The following files follow this structure, with the differences noted:
 
 - [csv/annplant_2spp_det_rare.csv](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/csv/annplant_2spp_det_rare.csv)  
   Source: `code_for_reproducibility.py` (full unfiltered Yenni grid; 777,600 rows).  
+  Equilibrium: uses `analyN` function (original Yenni method).  
   Columns: base 17 (no extra flags).
 
 - [csv/annplant_2spp_det_rare_filtered.csv](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/csv/annplant_2spp_det_rare_filtered.csv)  
   Source: `code_for_reproducibility.py` (filtered: Rank==2, S1>=1, S2>=1; values truncated to 2 decimals).  
+  Equilibrium: uses `analyN`.  
   Columns: base 17.
 
 - [csv/annplant_2spp_det_rare_yenni.csv](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/csv/annplant_2spp_det_rare_yenni.csv)  
-  Source: `main_appendix.py` (`run_pipeline('yenni')`). Same parameter ranges as above; uses Yenni’s original equilibrium calculation.  
+  Source: `main_appendix.py` (`run_pipeline('yenni')`). Same parameter ranges as above; uses Yenni’s original equilibrium calculation (`analyN`).  
   Columns: base 17 + `PGR1, PGR2, A1, A2, B, C` (total 23 columns).
 
 - [csv/annplant_2spp_det_rare_filtered_yenni.csv](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/csv/annplant_2spp_det_rare_filtered_yenni.csv)  
   Source: `main_appendix.py` (`cor_figure('yenni')`). Filtered: Rank==2 and S1>=1 and S2>=1.  
+  Equilibrium: uses `analyN`.  
   Columns: same as `annplant_2spp_det_rare_yenni.csv`.
 
 - [csv/annplant_2spp_det_rare_broad.csv](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/csv/annplant_2spp_det_rare_broad.csv)  
-  Source: `main_appendix.py` (`run_pipeline('broad')`). Latin hypercube sample (77,760 rows) with broader parameter ranges; uses correct equilibrium formulas.  
+  Source: `main_appendix.py` (`run_pipeline('broad')`). Latin hypercube sample (77,760 rows) with broader parameter ranges; uses **correct** equilibrium formulas:  
+  `N1* = ((r1-1)*a22 - (r2-1)*a12) / (a11*a22 - a12*a21)` and similarly for `N2*`.  
   Columns: same as `annplant_2spp_det_rare_yenni.csv`.
 
 - [csv/annplant_2spp_det_rare_filtered_broad.csv](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/csv/annplant_2spp_det_rare_filtered_broad.csv)  
   Source: `main_appendix.py` (`cor_figure('broad')`). Filtered: (A1 or A2 or B) and Rank==2.  
+  Equilibrium: correct formula.  
   Columns: same as `annplant_2spp_det_rare_broad.csv`.
 
 ---
@@ -113,14 +118,14 @@ A. Results file: `results_{model}_{scenario}.csv` (e.g., `results_bevertonHolt_r
 | Column name | Type | Description | Units / codes |
 |-------------|------|-------------|---------------|
 | `r1`, `r2` | float | Intrinsic growth rates | dimensionless |
-| `a11`, `a22` | float | Intra‑specific competition coefficients | dimensionless |
-| `a12`, `a21` | float | Inter‑specific competition coefficients | dimensionless |
+| `a11`, `a22` | float | Intra‑specific competition coefficients | 1/individuals |
+| `a12`, `a21` | float | Inter‑specific competition coefficients | 1/individuals |
 | `valid_outcome` | boolean | True if scenario is stable coexistence or competitive exclusion | – |
 | `coexistence` | boolean | True if stable coexistence (Cushing class B) | – |
 | `competitive_exclusion` | boolean | True if one species wins (Cushing A1 or A2) | – |
 | `has_rare_species` | boolean | True if equilibrium relative abundance of either species ≤ 0.25 | – |
-| `nu` | float | Strength of self‑limitation (Yenni) = (N₁−N₂)(S₁−S₂)/2 | dimensionless |
-| `nu_C` | float | Competition effect (Streipert & Wolkowicz) = (N₁−N₂)(CE₁−CE₂)/2 | dimensionless |
+| `nu` | float | Strength of self‑limitation (Yenni) = (N₁−N₂)(S₁−S₂)/2 | individuals |
+| `nu_C` | float | Competition effect (Streipert & Wolkowicz) = (N₁−N₂)(CE₁−CE₂)/2 | individuals² |
 
 B. Probability file: `probability_{model}_{scenario}.csv`
 
@@ -160,10 +165,10 @@ Generated files (all in `csv/`):
 
 | Column name | Type | Description | Units |
 |-------------|------|-------------|-------|
-| `r1`, `r2`, `a11`, `a22`, `a12`, `a21` | float | Parameters (as above) | dimensionless |
+| `r1`, `r2`, `a11`, `a22`, `a12`, `a21` | float | Parameters (as above) | dimensionless / 1/individuals |
 | `N1_eq`, `N2_eq` | float | Deterministic equilibrium densities | individuals |
 | `SoS1`, `SoS2` | float | Strength of stabilization | dimensionless |
-| `nu`, `nu_C` | float | Self‑limitation and competition effect | dimensionless |
+| `nu`, `nu_C` | float | Self‑limitation and competition effect | individuals / individuals² |
 | `rare_species` | string | `"species1_rare"` or `"species2_rare"` | – |
 | `self_limitation` | string | `"strong"` if nu < 0, else `"weak"` | – |
 | `rare_extinction_rate`, `common_extinction_rate` | float | Proportion of simulations where rare/common species goes extinct | proportion |
