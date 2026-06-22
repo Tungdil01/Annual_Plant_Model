@@ -59,18 +59,18 @@ These files share a common base structure. The full list of columns (base) is:
 
 | Column name | Type | Description | Units / codes |
 |-------------|------|-------------|---------------|
-| `r1`, `r2` | numeric | Intrinsic growth rates of species 1 and 2 | dimensionless |
-| `a11`, `a22` | numeric | Intra‑specific competition coefficients | dimensionless |
-| `a12`, `a21` | numeric | Inter‑specific competition coefficients | dimensionless |
-| `N1`, `N2` | numeric | Equilibrium densities (from `analyN` or correct formula) | individuals |
-| `E1` | numeric | Fitness equivalence = `r1/r2` | dimensionless |
-| `E2` | numeric | Fitness equivalence = `r2/r1` | dimensionless |
-| `S1`, `S2` | numeric | Strength of stabilization (Adler et al.) | dimensionless |
+| `r1`, `r2` | float | Intrinsic growth rates of species 1 and 2 | dimensionless |
+| `a11`, `a22` | float | Intra‑specific competition coefficients | dimensionless |
+| `a12`, `a21` | float | Inter‑specific competition coefficients | dimensionless |
+| `N1`, `N2` | float | Equilibrium densities (from `analyN` or correct formula) | individuals |
+| `E1` | float | Fitness equivalence = `r1/r2` | dimensionless |
+| `E2` | float | Fitness equivalence = `r2/r1` | dimensionless |
+| `S1`, `S2` | float | Strength of stabilization (Adler et al.) | dimensionless |
 | `Rank` | integer | 2 if rare (N1/(N1+N2) ≤ 0.25), else 1 | – |
 | `CoexistRank` | integer | 1 if both N1 ≥ 1 and N2 ≥ 1, else 0 | – |
-| `Asy` | numeric | Asymmetry = S1 − S2 | dimensionless |
-| `cor` (or `cor_sos`) | numeric | Covariance between [N1,N2] and [S1,S2] | – |
-| `Rare` | numeric | Proportion of species 1 at equilibrium = N1/(N1+N2) | proportion |
+| `Asy` | float | Asymmetry = S1 − S2 | dimensionless |
+| `cor` (or `cor_sos`) | float | Covariance between [N1,N2] and [S1,S2] | – |
+| `Rare` | float | Proportion of species 1 at equilibrium = N1/(N1+N2) | proportion |
 
 Additional columns in files from `main_appendix.py` (those with `_yenni` or `_broad`):  
 - `PGR1`, `PGR2` : per‑capita growth rates at equilibrium (log‑scale, dimensionless).  
@@ -112,15 +112,15 @@ A. Results file: `results_{model}_{scenario}.csv` (e.g., `results_bevertonHolt_r
 
 | Column name | Type | Description | Units / codes |
 |-------------|------|-------------|---------------|
-| `r1`, `r2` | numeric | Intrinsic growth rates | dimensionless |
-| `a11`, `a22` | numeric | Intra‑specific competition coefficients | dimensionless |
-| `a12`, `a21` | numeric | Inter‑specific competition coefficients | dimensionless |
+| `r1`, `r2` | float | Intrinsic growth rates | dimensionless |
+| `a11`, `a22` | float | Intra‑specific competition coefficients | dimensionless |
+| `a12`, `a21` | float | Inter‑specific competition coefficients | dimensionless |
 | `valid_outcome` | boolean | True if scenario is stable coexistence or competitive exclusion | – |
 | `coexistence` | boolean | True if stable coexistence (Cushing class B) | – |
 | `competitive_exclusion` | boolean | True if one species wins (Cushing A1 or A2) | – |
 | `has_rare_species` | boolean | True if equilibrium relative abundance of either species ≤ 0.25 | – |
-| `nu` | numeric | Strength of self‑limitation (Yenni) = (N₁−N₂)(S₁−S₂)/2 | dimensionless |
-| `nu_C` | numeric | Competition effect (Streipert & Wolkowicz) = (N₁−N₂)(CE₁−CE₂)/2 | dimensionless |
+| `nu` | float | Strength of self‑limitation (Yenni) = (N₁−N₂)(S₁−S₂)/2 | dimensionless |
+| `nu_C` | float | Competition effect (Streipert & Wolkowicz) = (N₁−N₂)(CE₁−CE₂)/2 | dimensionless |
 
 B. Probability file: `probability_{model}_{scenario}.csv`
 
@@ -128,9 +128,9 @@ B. Probability file: `probability_{model}_{scenario}.csv`
 |-------------|------|-------------|
 | `model`, `scenario` | string | Identifiers |
 | `n_total`, `bootstrap_replicates` | integer | Sample size and bootstrap count |
-| `confidence_level` | numeric | 0.95 |
+| `confidence_level` | float | 0.95 |
 | `coexistence_count`, `competitive_exclusion_count` | integer | Counts |
-| `P_coexistence_given_valid` and `*_lower`, `*_upper` | numeric | Bootstrap estimates and 95% CIs |
+| `P_coexistence_given_valid` and `*_lower`, `*_upper` | float | Bootstrap estimates and 95% CIs |
 | For each metric (`nu`, `nu_C`): `P_coexistence_given_{metric}_negative`, `_positive` with CIs; `P_{metric}_negative_given_coexistence`, `_positive_given_coexistence` with CIs; and `{metric}_negative_coexistence_count`, `_positive_coexistence_count`. | |
 
 C. Classification metrics file: `classification_metrics_{model}_{scenario}.csv`
@@ -160,11 +160,11 @@ Generated files (all in `csv/`):
 
 | Column name | Type | Description | Units |
 |-------------|------|-------------|-------|
-| `r1`, `r2`, `a11`, `a22`, `a12`, `a21` | numeric | Parameters (as above) | dimensionless |
-| `N1_eq`, `N2_eq` | numeric | Deterministic equilibrium densities | individuals |
-| `SoS1`, `SoS2` | numeric | Strength of stabilization | dimensionless |
-| `nu`, `nu_C` | numeric | Self‑limitation and competition effect | dimensionless |
+| `r1`, `r2`, `a11`, `a22`, `a12`, `a21` | float | Parameters (as above) | dimensionless |
+| `N1_eq`, `N2_eq` | float | Deterministic equilibrium densities | individuals |
+| `SoS1`, `SoS2` | float | Strength of stabilization | dimensionless |
+| `nu`, `nu_C` | float | Self‑limitation and competition effect | dimensionless |
 | `rare_species` | string | `"species1_rare"` or `"species2_rare"` | – |
 | `self_limitation` | string | `"strong"` if nu < 0, else `"weak"` | – |
-| `rare_extinction_rate`, `common_extinction_rate` | numeric | Proportion of simulations where rare/common species goes extinct | proportion |
-| `mean_coexistence_time`, `median_coexistence_time` | numeric | Mean/median time to extinction | generations |
+| `rare_extinction_rate`, `common_extinction_rate` | float | Proportion of simulations where rare/common species goes extinct | proportion |
+| `mean_coexistence_time`, `median_coexistence_time` | float | Mean/median time to extinction | generations |
