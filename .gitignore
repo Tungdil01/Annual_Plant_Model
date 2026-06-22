@@ -1,9 +1,0 @@
-.gitignore
-jupyter/
-refs/
-old/
-png/
-R/
-R_equivalent/
-.env/
-.ipynb_checkpoints/
