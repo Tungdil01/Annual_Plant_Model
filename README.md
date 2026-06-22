@@ -65,7 +65,7 @@ These files share a common base structure. The full list of columns (base) is:
 | `N1`, `N2` | float | Equilibrium densities | individuals |
 | `E1` | float | Fitness equivalence = `r1/r2` | dimensionless |
 | `E2` | float | Fitness equivalence = `r2/r1` | dimensionless |
-| `S1`, `S2` | float | Strength of stabilization [Adler et al. 2007](https://doi.org/10.1111/j.1461-0248.2006.00996.x) | dimensionless |
+| `S1`, `S2` | float | Strength of stabilization [(Adler et al. 2007)](https://doi.org/10.1111/j.1461-0248.2006.00996.x) | dimensionless |
 | `Rank` | integer | 2 if rare (N1/(N1+N2) ≤ 0.25), else 1 | – |
 | `CoexistRank` | integer | 1 if both N1 ≥ 1 and N2 ≥ 1, else 0 | – |
 | `Asy` | float | Asymmetry = S1 − S2 | dimensionless |
@@ -74,7 +74,7 @@ These files share a common base structure. The full list of columns (base) is:
 
 Additional columns in files from `main_appendix.py` (those with `_yenni` or `_broad`):  
 - `PGR1`, `PGR2` : per‑capita growth rates at equilibrium (log‑scale, dimensionless).  
-- `A1`, `A2`, `B`, `C` : boolean flags (True/False) for Cushing classification (Exclusion of species 2, Exclusion of species 1, Coexistence, Saddle point).
+- `A1`, `A2`, `B`, `C` : boolean flags (True/False) for [Cushing et al. 2004](https://doi.org/10.1080/10236190410001652739) classification (Exclusion of species 2, Exclusion of species 1, Coexistence, Saddle point).
 
 The following files follow this structure, with the differences noted:
 
@@ -98,7 +98,7 @@ The following files follow this structure, with the differences noted:
   Columns: same as `annplant_2spp_det_rare_yenni.csv`.
 
 - [csv/annplant_2spp_det_rare_broad.csv](https://github.com/Tungdil01/Annual_Plant_Model/blob/main/csv/annplant_2spp_det_rare_broad.csv)  
-  Source: `main_appendix.py` (`run_pipeline('broad')`). Latin hypercube sample (77,760 rows) with broader parameter ranges; uses correct equilibrium formulas for each theoretical class as determined by [Cushing et al. 2004](https://doi.org/10.1080/10236190410001652739) conditions:  
+  Source: `main_appendix.py` (`run_pipeline('broad')`). Latin hypercube sample (77,760 rows) with broader parameter ranges; uses correct equilibrium formulas for each theoretical class as determined by Cushing conditions:  
   `N1* = ((r1-1)*a22 - (r2-1)*a12) / (a11*a22 - a12*a21)` and similarly for `N2*`. For exclusion, single-species equilibria are used. 
   Columns: same as `annplant_2spp_det_rare_yenni.csv`.
 
@@ -125,7 +125,7 @@ A. Results file: `results_{model}_{scenario}.csv` (e.g., `results_bevertonHolt_r
 | `competitive_exclusion` | boolean | True if one species wins (Cushing A1 or A2) | – |
 | `has_rare_species` | boolean | True if equilibrium relative abundance of either species ≤ 0.25 | – |
 | `nu` | float | Strength of self‑limitation (Yenni) = (N₁−N₂)(S₁−S₂)/2 | individuals |
-| `nu_C` | float | Competition effect (Streipert & Wolkowicz) = (N₁−N₂)(CE₁−CE₂)/2 | individuals² |
+| `nu_C` | float | Competition effect ([Streipert and Wolkowicz 2023](https://doi.org/10.1016/j.mbs.2022.108924)) = (N₁−N₂)(CE₁−CE₂)/2 | individuals² |
 
 B. Probability file: `probability_{model}_{scenario}.csv`
 
